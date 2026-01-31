@@ -131,6 +131,72 @@ def test_award_search_unknown_award() -> None:
     assert "Unknown award" in response.json()["detail"]
 
 
+def test_award_search_pulitzer_subjects(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get("/books/awards/pulitzer/search")
+    assert response.status_code == 200
+    assert "subject_key:pulitzer_prize_winner" in captured["q"]
+    assert "subject_key:pulitzer_prizes" in captured["q"]
+    assert "subject:\"Pulitzer Prize\"" in captured["q"]
+    assert "subject:\"Pulitzer Prize Winner\"" in captured["q"]
+    assert "subject:\"Pulitzer Prizes\"" in captured["q"]
+    assert " OR " in captured["q"]
+
+
+def test_award_search_booker_subjects(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get("/books/awards/booker/search")
+    assert response.status_code == 200
+    assert "subject_key:man_booker_prize_winner" in captured["q"]
+    assert "subject:\"Booker Prize\"" in captured["q"]
+    assert "subject:\"Man Booker Prize\"" in captured["q"]
+    assert "subject:\"Booker Prize Winner\"" in captured["q"]
+    assert "subject:\"Man Booker Prize Winner\"" in captured["q"]
+    assert " OR " in captured["q"]
+
+
+def test_award_search_nobel_subjects(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get("/books/awards/nobel/search")
+    assert response.status_code == 200
+    assert "subject_key:nobel_prize_winners" in captured["q"]
+    assert "subject_key:nobel_prizes" in captured["q"]
+    assert "subject:\"Nobel Prize\"" in captured["q"]
+    assert "subject:\"Nobel Prize winners\"" in captured["q"]
+    assert "subject:\"Nobel Prizes\"" in captured["q"]
+    assert " OR " in captured["q"]
+
+
 def test_award_search_builds_query(monkeypatch) -> None:
     captured = {}
 

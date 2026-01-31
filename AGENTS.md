@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Purpose
-Personal Science Fiction Library Manager. Manage a reading list of Hugo/Nebula/Locus award winners, track read/unread, and provide random unread picks. Optional Open Library integration.
+Personal Science Fiction Library Manager. Manage a reading list of Hugo/Nebula/Locus/Pulitzer/Booker/Nobel award winners, track read/unread, and provide random unread picks. Optional Open Library integration.
 
 ## Tech Stack
 - Python >= 3.9

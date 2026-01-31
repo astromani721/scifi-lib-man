@@ -174,7 +174,7 @@ def search_award_books(
     if not award_filters:
         raise HTTPException(
             status_code=404,
-            detail="Unknown award. Use one of: hugo, nebula, locus.",
+            detail="Unknown award. Use one of: hugo, nebula, locus, pulitzer, booker, nobel.",
         )
 
     try:

@@ -1,5 +1,5 @@
 # scifi-lib-man
-Personal Science Fiction Library Manager. Organize a reading list of Hugo/Nebula/Locus award winners, track read/unread status, and get random unread picks. Includes a FastAPI endpoint to query Open Library.
+Personal Science Fiction Library Manager. Organize a reading list of Hugo/Nebula/Locus/Pulitzer/Booker/Nobel award winners, track read/unread status, and get random unread picks. Includes a FastAPI endpoint to query Open Library.
 
 See `AGENTS.md` for repo-specific contributor/agent instructions.
 
@@ -33,6 +33,9 @@ curl "http://127.0.0.1:8000/books/isbn/9780143111580"
 curl "http://127.0.0.1:8000/books/awards/hugo/search?author=Ursula%20Le%20Guin&year=1969"
 curl "http://127.0.0.1:8000/books/awards/nebula/search?year_from=1990&year_to=1999"
 curl "http://127.0.0.1:8000/books/awards/locus/search?title=Neuromancer"
+curl "http://127.0.0.1:8000/books/awards/pulitzer/search?title=The%20Grapes%20of%20Wrath"
+curl "http://127.0.0.1:8000/books/awards/booker/search?author=Yann%20Martel"
+curl "http://127.0.0.1:8000/books/awards/nobel/search?q=literature"
 ```
 
 ## Run the CLI

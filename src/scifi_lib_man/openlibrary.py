@@ -27,6 +27,27 @@ AWARD_FILTERS = {
         ("subject", "Locus Award"),
         ("subject", "Locus Awards"),
     ],
+    "pulitzer": [
+        ("subject_key", "pulitzer_prize_winner"),
+        ("subject_key", "pulitzer_prizes"),
+        ("subject", "Pulitzer Prize"),
+        ("subject", "Pulitzer Prize Winner"),
+        ("subject", "Pulitzer Prizes"),
+    ],
+    "booker": [
+        ("subject_key", "man_booker_prize_winner"),
+        ("subject", "Booker Prize"),
+        ("subject", "Man Booker Prize"),
+        ("subject", "Booker Prize Winner"),
+        ("subject", "Man Booker Prize Winner"),
+    ],
+    "nobel": [
+        ("subject_key", "nobel_prize_winners"),
+        ("subject_key", "nobel_prizes"),
+        ("subject", "Nobel Prize"),
+        ("subject", "Nobel Prize winners"),
+        ("subject", "Nobel Prizes"),
+    ],
 }
 
 
