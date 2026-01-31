@@ -37,8 +37,7 @@ def init_db(conn: sqlite3.Connection) -> None:
 
         CREATE TABLE IF NOT EXISTS authors (
             olid TEXT PRIMARY KEY,
-            name TEXT,
-            personal_name TEXT
+            name TEXT
         );
 
         CREATE TABLE IF NOT EXISTS book_authors (
@@ -98,17 +97,15 @@ def upsert_author(
     *,
     olid: str,
     name: str | None = None,
-    personal_name: str | None = None,
 ) -> None:
     conn.execute(
         """
-        INSERT INTO authors (olid, name, personal_name)
-        VALUES (?, ?, ?)
+        INSERT INTO authors (olid, name)
+        VALUES (?, ?)
         ON CONFLICT(olid) DO UPDATE SET
-            name = excluded.name,
-            personal_name = excluded.personal_name
+            name = excluded.name
         """,
-        (olid, name, personal_name),
+        (olid, name),
     )
 
 

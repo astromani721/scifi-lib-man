@@ -1,6 +1,12 @@
 import typer
 
-from .catalog import extract_authors, extract_book_fields, fetch_book_by_olid, normalize_author_entries
+from .catalog import (
+    extract_authors,
+    extract_book_fields,
+    fetch_author_by_olid,
+    fetch_book_by_olid,
+    normalize_author_entries,
+)
 from .storage import (
     add_book_author,
     add_to_reading_list,
@@ -62,16 +68,23 @@ def add_to_list(
     upsert_book(conn, **book_fields)
     authors = normalize_author_entries(extract_authors(record))
     for index, author in enumerate(authors):
+        author_key = author["key"]
+        name = author.get("name")
+        try:
+            author_record = fetch_author_by_olid(author_key)
+        except (ValueError, RuntimeError):
+            author_record = None
+        if author_record:
+            name = author_record.get("name") or name
         upsert_author(
             conn,
-            olid=author["key"],
-            name=author.get("name"),
-            personal_name=author.get("personal_name"),
+            olid=author_key,
+            name=name,
         )
         add_book_author(
             conn,
             book_olid=book_fields["olid"],
-            author_olid=author["key"],
+            author_olid=author_key,
             author_order=index,
         )
     add_to_reading_list(

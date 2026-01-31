@@ -26,10 +26,14 @@ def fetch_author_by_olid(olid: str) -> dict:
     normalized = olid.strip()
     if not normalized:
         raise ValueError("OLID must be a non-empty string.")
-    if not normalized.endswith("A"):
+    if normalized.startswith(AUTHOR_PREFIX):
+        key = normalized
+    elif normalized.startswith("authors/"):
+        key = f"/{normalized}"
+    elif normalized.startswith("OL") and normalized.endswith("A"):
+        key = f"{AUTHOR_PREFIX}{normalized}"
+    else:
         raise ValueError("Author OLID must end with A.")
-
-    key = f"{AUTHOR_PREFIX}{normalized}"
     return fetch_by_key(key, allowed_prefixes=(AUTHOR_PREFIX,))
 
 
