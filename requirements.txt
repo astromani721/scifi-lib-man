@@ -1,0 +1,5 @@
+requests
+typer
+rich
+pydantic
+fastapi

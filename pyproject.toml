@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scifi-lib-man"
+version = "0.1.0"
+description = "Personal Science Fiction Library Manager"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "Mani Anand" }
+]
+dependencies = [
+  "requests",
+  "typer",
+  "rich",
+  "pydantic",
+  "fastapi"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "tomli; python_version < '3.11'",
+  "uvicorn",
+  "httpx"
+]
+
+[project.scripts]
+scifi-lib-man = "scifi_lib_man.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
