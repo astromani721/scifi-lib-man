@@ -8,6 +8,9 @@ import requests
 BASE_URL = "https://openlibrary.org"
 SEARCH_ENDPOINT = f"{BASE_URL}/search.json"
 ISBN_ENDPOINT = f"{BASE_URL}/isbn"
+WORK_PREFIX = "/works/"
+BOOK_PREFIX = "/books/"
+AUTHOR_PREFIX = "/authors/"
 REQUIRED_FIELDS = [
     "key",
     "title",
@@ -164,5 +167,27 @@ def fetch_by_isbn(isbn: str) -> dict:
         raise RuntimeError("Open Library ISBN request failed.") from exc
     except requests.RequestException as exc:
         raise RuntimeError("Open Library ISBN request failed.") from exc
+
+    return response.json()
+
+
+def fetch_by_key(key: str, *, allowed_prefixes: Iterable[str]) -> dict:
+    if not key or not key.strip():
+        raise ValueError("key must be a non-empty string.")
+    if not any(key.startswith(prefix) for prefix in allowed_prefixes):
+        raise ValueError(
+            "key must start with one of: " + ", ".join(sorted(allowed_prefixes))
+        )
+
+    url = f"{BASE_URL}{key}.json"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 404:
+            raise ValueError("Key not found in Open Library.") from exc
+        raise RuntimeError("Open Library key request failed.") from exc
+    except requests.RequestException as exc:
+        raise RuntimeError("Open Library key request failed.") from exc
 
     return response.json()

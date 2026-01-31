@@ -125,6 +125,63 @@ def test_isbn_not_found(monkeypatch) -> None:
     assert "ISBN not found" in response.json()["detail"]
 
 
+def test_book_by_olid_work_success(monkeypatch) -> None:
+    def fake_fetch_by_key(_key: str, *, allowed_prefixes):
+        assert "/works/" in allowed_prefixes
+        return {"key": "/works/OL123W", "title": "Test"}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.fetch_by_key",
+        fake_fetch_by_key,
+    )
+
+    response = client.get("/books/OL123W")
+    assert response.status_code == 200
+    assert response.json()["key"] == "/works/OL123W"
+
+
+def test_book_by_olid_edition_success(monkeypatch) -> None:
+    def fake_fetch_by_key(_key: str, *, allowed_prefixes):
+        assert "/books/" in allowed_prefixes
+        return {"key": "/books/OL123M", "title": "Test"}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.fetch_by_key",
+        fake_fetch_by_key,
+    )
+
+    response = client.get("/books/OL123M")
+    assert response.status_code == 200
+    assert response.json()["key"] == "/books/OL123M"
+
+
+def test_book_by_olid_invalid_suffix() -> None:
+    response = client.get("/books/OL123A")
+    assert response.status_code == 404
+    assert "Book OLID must end" in response.json()["detail"]
+
+
+def test_author_by_olid_success(monkeypatch) -> None:
+    def fake_fetch_by_key(_key: str, *, allowed_prefixes):
+        assert "/authors/" in allowed_prefixes
+        return {"key": "/authors/OL123A", "name": "Test"}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.fetch_by_key",
+        fake_fetch_by_key,
+    )
+
+    response = client.get("/authors/OL123A")
+    assert response.status_code == 200
+    assert response.json()["key"] == "/authors/OL123A"
+
+
+def test_author_by_olid_invalid_suffix() -> None:
+    response = client.get("/authors/OL123M")
+    assert response.status_code == 404
+    assert "Author OLID must end" in response.json()["detail"]
+
+
 def test_award_search_unknown_award() -> None:
     response = client.get("/books/awards/unknown/search")
     assert response.status_code == 404

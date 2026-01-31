@@ -4,8 +4,12 @@ from fastapi import FastAPI, HTTPException, Path, Query
 
 from .openlibrary import (
     AWARD_FILTERS,
+    AUTHOR_PREFIX,
+    BOOK_PREFIX,
     REQUIRED_FIELDS,
+    WORK_PREFIX,
     build_award_query,
+    fetch_by_key,
     fetch_by_isbn,
     search_openlibrary,
 )
@@ -103,6 +107,57 @@ def search_books(
 def get_book_by_isbn(isbn: str) -> dict:
     try:
         return fetch_by_isbn(isbn)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/books/{olid}")
+def get_book_by_olid(olid: str) -> dict:
+    normalized = olid.strip()
+    if not normalized:
+        raise HTTPException(status_code=404, detail="OLID must be a non-empty string.")
+    if normalized.endswith("M"):
+        key = f"{BOOK_PREFIX}{normalized}"
+        allowed = (BOOK_PREFIX,)
+    elif normalized.endswith("W"):
+        key = f"{WORK_PREFIX}{normalized}"
+        allowed = (WORK_PREFIX,)
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="Book OLID must end with M (edition) or W (work).",
+        )
+
+    try:
+        return fetch_by_key(
+            key,
+            allowed_prefixes=allowed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/authors/{olid}")
+def get_author_by_olid(olid: str) -> dict:
+    normalized = olid.strip()
+    if not normalized:
+        raise HTTPException(status_code=404, detail="OLID must be a non-empty string.")
+    if not normalized.endswith("A"):
+        raise HTTPException(
+            status_code=404,
+            detail="Author OLID must end with A.",
+        )
+
+    key = f"{AUTHOR_PREFIX}{normalized}"
+    try:
+        return fetch_by_key(
+            key,
+            allowed_prefixes=(AUTHOR_PREFIX,),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
