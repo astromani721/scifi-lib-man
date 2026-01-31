@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Purpose
-Personal Science Fiction Library Manager. Manage a reading list of Hugo/Nebula award winners, track read/unread, and provide random unread picks. Optional Open Library integration.
+Personal Science Fiction Library Manager. Manage a reading list of Hugo/Nebula/Locus award winners, track read/unread, and provide random unread picks. Optional Open Library integration.
 
 ## Tech Stack
 - Python >= 3.9
@@ -35,7 +35,7 @@ Personal Science Fiction Library Manager. Manage a reading list of Hugo/Nebula a
 - Keep CLI and API using the same underlying storage + models
 - Add new functionality in `src/scifi_lib_man/` and test in `tests/`
 - Prefer simple, explicit Python over clever abstractions
-- Open Library API routes: `/books/search`, `/books/isbn/{isbn}`
+- Open Library API routes: `/books/search`, `/books/isbn/{isbn}`, `/books/awards/{award}/search`
 
 ## Guardrails
 - Avoid breaking storage format once chosen

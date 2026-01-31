@@ -123,3 +123,70 @@ def test_isbn_not_found(monkeypatch) -> None:
     response = client.get("/books/isbn/0000000000")
     assert response.status_code == 404
     assert "ISBN not found" in response.json()["detail"]
+
+
+def test_award_search_unknown_award() -> None:
+    response = client.get("/books/awards/unknown/search")
+    assert response.status_code == 404
+    assert "Unknown award" in response.json()["detail"]
+
+
+def test_award_search_builds_query(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get(
+        "/books/awards/hugo/search",
+        params={"author": "Ursula Le Guin", "year": 1969},
+    )
+    assert response.status_code == 200
+    assert "subject_key:hugo_award_winner" in captured["q"]
+    assert "author:\"Ursula Le Guin\"" in captured["q"]
+    assert "first_publish_year:1969" in captured["q"]
+
+
+def test_award_search_nebula_subjects(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get("/books/awards/nebula/search")
+    assert response.status_code == 200
+    assert "subject_key:nebula_award_winner" in captured["q"]
+    assert "subject:\"Nebula Award\"" in captured["q"]
+    assert " OR " in captured["q"]
+
+
+def test_award_search_locus_subjects(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get("/books/awards/locus/search")
+    assert response.status_code == 200
+    assert "subject_key:locus_award_winner" in captured["q"]
+    assert "subject:\"Locus Award\"" in captured["q"]
+    assert "subject:\"Locus Awards\"" in captured["q"]
+    assert " OR " in captured["q"]
