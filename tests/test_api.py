@@ -97,6 +97,45 @@ def test_search_fields_custom(monkeypatch) -> None:
     assert captured["fields"] == ["key", "title"]
 
 
+def test_search_supports_subject_and_language(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get(
+        "/books/search",
+        params={"subject": "cyberpunk", "language": "eng", "subject_key": "science_fiction"},
+    )
+    assert response.status_code == 200
+    assert captured["subject"] == "cyberpunk"
+    assert captured["language"] == "eng"
+    assert captured["subject_key"] == "science_fiction"
+
+
+def test_search_year_range_conflict(monkeypatch) -> None:
+    def fake_search_openlibrary(**_kwargs):
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get(
+        "/books/search",
+        params={"year": 1999, "year_from": 1990},
+    )
+    assert response.status_code == 400
+    assert "Use either year" in response.json()["detail"]
+
+
 def test_isbn_success(monkeypatch) -> None:
     def fake_fetch_by_isbn(_isbn: str):
         return {"isbn_13": ["9780143111580"], "title": "Test"}
@@ -349,6 +388,28 @@ def test_award_search_builds_query(monkeypatch) -> None:
     assert "subject_key:hugo_award_winner" in captured["q"]
     assert "author:\"Ursula Le Guin\"" in captured["q"]
     assert "first_publish_year:1969" in captured["q"]
+
+
+def test_award_search_subject_language(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get(
+        "/books/awards/hugo/search",
+        params={"subject": "cyberpunk", "language": "eng", "subject_key": "science_fiction"},
+    )
+    assert response.status_code == 200
+    assert "subject:cyberpunk" in captured["q"]
+    assert "language:eng" in captured["q"]
+    assert "subject_key:science_fiction" in captured["q"]
 
 
 def test_award_search_nebula_subjects(monkeypatch) -> None:

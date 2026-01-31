@@ -109,9 +109,33 @@ def search_books(
             str | None,
             Query(
                 description=(
-                        "Optional ISBN search. At least one of q, title, author, or isbn is required."
+                    "Optional ISBN search. At least one of q, title, author, or isbn is required."
                 ),
             ),
+        ] = None,
+        subject: Annotated[
+            str | None,
+            Query(description="Optional subject filter."),
+        ] = None,
+        subject_key: Annotated[
+            str | None,
+            Query(description="Optional subject key filter (normalized subject)."),
+        ] = None,
+        language: Annotated[
+            str | None,
+            Query(description="Optional language filter."),
+        ] = None,
+        year: Annotated[
+            int | None,
+            Query(description="Optional year filter (first publish year)."),
+        ] = None,
+        year_from: Annotated[
+            int | None,
+            Query(description="Optional start year for a range filter."),
+        ] = None,
+        year_to: Annotated[
+            int | None,
+            Query(description="Optional end year for a range filter."),
         ] = None,
         limit: Annotated[
             int,
@@ -138,10 +162,28 @@ def search_books(
             ),
         ] = None,
 ) -> dict:
-    if not any([q, title, author, isbn]):
+    if not any(
+        [
+            q,
+            title,
+            author,
+            isbn,
+            subject,
+            subject_key,
+            language,
+            year,
+            year_from,
+            year_to,
+        ]
+    ):
         raise HTTPException(
             status_code=400,
-            detail="Provide at least one of q, title, author, or isbn.",
+            detail="Provide at least one of q, title, author, isbn, subject, language, or year.",
+        )
+    if year is not None and (year_from is not None or year_to is not None):
+        raise HTTPException(
+            status_code=400,
+            detail="Use either year or year_from/year_to, not both.",
         )
 
     try:
@@ -150,6 +192,12 @@ def search_books(
             title=title,
             author=author,
             isbn=isbn,
+            subject=subject,
+            subject_key=subject_key,
+            language=language,
+            year=year,
+            year_from=year_from,
+            year_to=year_to,
             limit=limit,
             page=page,
             fields=fields,
@@ -313,6 +361,18 @@ def search_award_books(
         str | None,
         Query(description="Optional ISBN filter."),
     ] = None,
+    subject: Annotated[
+        str | None,
+        Query(description="Optional subject filter."),
+    ] = None,
+    subject_key: Annotated[
+        str | None,
+        Query(description="Optional subject key filter (normalized subject)."),
+    ] = None,
+    language: Annotated[
+        str | None,
+        Query(description="Optional language filter."),
+    ] = None,
     year: Annotated[
         int | None,
         Query(description="Optional year filter (first publish year)."),
@@ -364,6 +424,9 @@ def search_award_books(
             title=title,
             author=author,
             isbn=isbn,
+            subject=subject,
+            subject_key=subject_key,
+            language=language,
             year=year,
             year_from=year_from,
             year_to=year_to,

@@ -73,6 +73,12 @@ def _quote_term(value: str) -> str:
     return escaped
 
 
+def _append_query(existing: str | None, clause: str) -> str:
+    if not existing:
+        return clause
+    return f"({existing}) AND {clause}"
+
+
 def build_award_query(
     *,
     award_filters: Iterable[tuple[str, str]] | None = None,
@@ -80,6 +86,9 @@ def build_award_query(
     title: str | None = None,
     author: str | None = None,
     isbn: str | None = None,
+    subject: str | None = None,
+    subject_key: str | None = None,
+    language: str | None = None,
     year: int | None = None,
     year_from: int | None = None,
     year_to: int | None = None,
@@ -105,6 +114,12 @@ def build_award_query(
         parts.append(f"author:{_quote_term(author)}")
     if isbn:
         parts.append(f"isbn:{_quote_term(isbn)}")
+    if subject:
+        parts.append(f"subject:{_quote_term(subject)}")
+    if subject_key:
+        parts.append(f"subject_key:{_quote_term(subject_key)}")
+    if language:
+        parts.append(f"language:{_quote_term(language)}")
     if year is not None:
         parts.append(f"first_publish_year:{year}")
     if year_from is not None or year_to is not None:
@@ -121,6 +136,12 @@ def search_openlibrary(
     title: str | None = None,
     author: str | None = None,
     isbn: str | None = None,
+    subject: str | None = None,
+    subject_key: str | None = None,
+    language: str | None = None,
+    year: int | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
     limit: int = 10,
     page: int = 1,
     fields: Iterable[str] | None = None,
@@ -129,6 +150,8 @@ def search_openlibrary(
         raise ValueError("limit must be between 1 and 100.")
     if page < 1:
         raise ValueError("page must be >= 1.")
+    if year is not None and (year_from is not None or year_to is not None):
+        raise ValueError("Use either year or year_from/year_to, not both.")
 
     params: dict[str, str | int] = {
         "limit": limit,
@@ -143,6 +166,18 @@ def search_openlibrary(
         params["author"] = author
     if isbn:
         params["isbn"] = isbn
+    if subject:
+        params["subject"] = subject
+    if subject_key:
+        params["subject_key"] = subject_key
+    if language:
+        params["language"] = language
+    if year is not None:
+        params["first_publish_year"] = year
+    if year_from is not None or year_to is not None:
+        start = "*" if year_from is None else year_from
+        end = "*" if year_to is None else year_to
+        params["q"] = _append_query(params.get("q"), f"first_publish_year:[{start} TO {end}]")
 
     try:
         response = requests.get(SEARCH_ENDPOINT, params=params, timeout=10)

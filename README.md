@@ -30,6 +30,8 @@ uvicorn scifi_lib_man.main:app --reload
 ```
 curl "http://127.0.0.1:8000/health"
 curl "http://127.0.0.1:8000/books/search?author=Ayn%20Rand&limit=5"
+curl "http://127.0.0.1:8000/books/search?subject=cyberpunk&subject_key=science_fiction&language=eng"
+curl "http://127.0.0.1:8000/books/search?year_from=1990&year_to=1999"
 curl "http://127.0.0.1:8000/books/isbn/9780143111580"
 curl "http://127.0.0.1:8000/books/OL45804W"
 curl "http://127.0.0.1:8000/books/OL27448M"
@@ -44,6 +46,7 @@ curl -X PUT "http://127.0.0.1:8000/reading-list/books/OL45804M" \
 curl -X DELETE "http://127.0.0.1:8000/reading-list/books/OL45804M"
 curl "http://127.0.0.1:8000/books/awards/hugo/search?author=Ursula%20Le%20Guin&year=1969"
 curl "http://127.0.0.1:8000/books/awards/nebula/search?year_from=1990&year_to=1999"
+curl "http://127.0.0.1:8000/books/awards/hugo/search?subject=cyberpunk&subject_key=science_fiction&language=eng"
 curl "http://127.0.0.1:8000/books/awards/locus/search?title=Neuromancer"
 curl "http://127.0.0.1:8000/books/awards/pulitzer/search?title=The%20Grapes%20of%20Wrath"
 curl "http://127.0.0.1:8000/books/awards/booker/search?author=Yann%20Martel"
