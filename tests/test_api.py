@@ -125,29 +125,13 @@ def test_isbn_not_found(monkeypatch) -> None:
     assert "ISBN not found" in response.json()["detail"]
 
 
-def test_book_by_olid_work_success(monkeypatch) -> None:
-    def fake_fetch_by_key(_key: str, *, allowed_prefixes):
-        assert "/works/" in allowed_prefixes
-        return {"key": "/works/OL123W", "title": "Test"}
-
-    monkeypatch.setattr(
-        "scifi_lib_man.api.fetch_by_key",
-        fake_fetch_by_key,
-    )
-
-    response = client.get("/books/OL123W")
-    assert response.status_code == 200
-    assert response.json()["key"] == "/works/OL123W"
-
-
 def test_book_by_olid_edition_success(monkeypatch) -> None:
-    def fake_fetch_by_key(_key: str, *, allowed_prefixes):
-        assert "/books/" in allowed_prefixes
+    def fake_fetch_book_by_olid(_olid: str):
         return {"key": "/books/OL123M", "title": "Test"}
 
     monkeypatch.setattr(
-        "scifi_lib_man.api.fetch_by_key",
-        fake_fetch_by_key,
+        "scifi_lib_man.api.fetch_book_by_olid",
+        fake_fetch_book_by_olid,
     )
 
     response = client.get("/books/OL123M")
@@ -155,20 +139,25 @@ def test_book_by_olid_edition_success(monkeypatch) -> None:
     assert response.json()["key"] == "/books/OL123M"
 
 
+def test_book_by_olid_rejects_work() -> None:
+    response = client.get("/books/OL123W")
+    assert response.status_code == 404
+    assert "edition key" in response.json()["detail"]
+
+
 def test_book_by_olid_invalid_suffix() -> None:
     response = client.get("/books/OL123A")
     assert response.status_code == 404
-    assert "Book OLID must end" in response.json()["detail"]
+    assert "edition key" in response.json()["detail"]
 
 
 def test_author_by_olid_success(monkeypatch) -> None:
-    def fake_fetch_by_key(_key: str, *, allowed_prefixes):
-        assert "/authors/" in allowed_prefixes
+    def fake_fetch_author_by_olid(_olid: str):
         return {"key": "/authors/OL123A", "name": "Test"}
 
     monkeypatch.setattr(
-        "scifi_lib_man.api.fetch_by_key",
-        fake_fetch_by_key,
+        "scifi_lib_man.api.fetch_author_by_olid",
+        fake_fetch_author_by_olid,
     )
 
     response = client.get("/authors/OL123A")
@@ -180,6 +169,92 @@ def test_author_by_olid_invalid_suffix() -> None:
     response = client.get("/authors/OL123M")
     assert response.status_code == 404
     assert "Author OLID must end" in response.json()["detail"]
+
+
+def test_reading_list_add_and_list(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SCIFI_LIB_MAN_DB", str(tmp_path / "test.db"))
+
+    def fake_fetch_book_by_olid(_olid: str):
+        return {
+            "key": "/works/OL1W",
+            "title": "Test Book",
+            "publish_date": "1969",
+            "isbn_13": ["123"],
+            "authors": [{"author": {"key": "/authors/OL1A"}}],
+        }
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.fetch_book_by_olid",
+        fake_fetch_book_by_olid,
+    )
+
+    response = client.post(
+        "/reading-list/books/OL1M",
+        json={"status": "wishlist"},
+    )
+    assert response.status_code == 200
+
+    response = client.get("/reading-list", params={"status": "wishlist"})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["book_olid"] == "/works/OL1W"
+
+
+def test_reading_list_update(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SCIFI_LIB_MAN_DB", str(tmp_path / "test.db"))
+
+    def fake_fetch_book_by_olid(_olid: str):
+        return {"key": "/books/OL2M", "title": "Test Book"}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.fetch_book_by_olid",
+        fake_fetch_book_by_olid,
+    )
+
+    response = client.post(
+        "/reading-list/books/OL2M",
+        json={"status": "wishlist"},
+    )
+    assert response.status_code == 200
+
+    response = client.put(
+        "/reading-list/books/OL2W",
+        json={"status": "read", "rating": 4},
+    )
+    assert response.status_code == 404
+
+    response = client.put(
+        "/reading-list/books/OL2M",
+        json={"status": "read", "rating": 4},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "read"
+
+
+def test_reading_list_delete(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SCIFI_LIB_MAN_DB", str(tmp_path / "test.db"))
+
+    def fake_fetch_book_by_olid(_olid: str):
+        return {"key": "/books/OL3M", "title": "Test Book"}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.fetch_book_by_olid",
+        fake_fetch_book_by_olid,
+    )
+
+    response = client.post(
+        "/reading-list/books/OL3M",
+        json={"status": "wishlist"},
+    )
+    assert response.status_code == 200
+
+    response = client.delete("/reading-list/books/OL3W")
+    assert response.status_code == 404
+
+    response = client.delete("/reading-list/books/OL3M")
+    assert response.status_code == 200
+    assert response.json()["deleted"] is True
 
 
 def test_award_search_unknown_award() -> None:

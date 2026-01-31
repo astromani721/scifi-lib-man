@@ -6,6 +6,7 @@ See `AGENTS.md` for repo-specific contributor/agent instructions.
 ## Features
 - CLI scaffold (Typer)
 - FastAPI app with `/health`, `/books/search`, `/books/isbn/{isbn}`, `/books/{olid}`, `/authors/{olid}`, `/books/awards/{award}/search`
+- Reading list API: `/reading-list` (GET), `/reading-list/{olid}` (POST/PUT/DELETE)
 - Open Library search + ISBN detail lookup
 - Dependency sync from `pyproject.toml`
 
@@ -33,6 +34,14 @@ curl "http://127.0.0.1:8000/books/isbn/9780143111580"
 curl "http://127.0.0.1:8000/books/OL45804W"
 curl "http://127.0.0.1:8000/books/OL27448M"
 curl "http://127.0.0.1:8000/authors/OL23919A"
+curl -X POST "http://127.0.0.1:8000/reading-list/books/OL45804M" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"wishlist"}'
+curl "http://127.0.0.1:8000/reading-list?status=wishlist"
+curl -X PUT "http://127.0.0.1:8000/reading-list/books/OL45804M" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"read","rating":5}'
+curl -X DELETE "http://127.0.0.1:8000/reading-list/books/OL45804M"
 curl "http://127.0.0.1:8000/books/awards/hugo/search?author=Ursula%20Le%20Guin&year=1969"
 curl "http://127.0.0.1:8000/books/awards/nebula/search?year_from=1990&year_to=1999"
 curl "http://127.0.0.1:8000/books/awards/locus/search?title=Neuromancer"
@@ -46,6 +55,10 @@ curl "http://127.0.0.1:8000/books/awards/nobel/search?q=literature"
 scifi-lib-man --help
 scifi-lib-man hello
 scifi-lib-man health
+scifi-lib-man init-db
+scifi-lib-man add /books/OL45804M --status wishlist
+scifi-lib-man list --status wishlist
+scifi-lib-man remove /books/OL45804M
 ```
 
 ## Tests
