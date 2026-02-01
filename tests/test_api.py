@@ -97,6 +97,24 @@ def test_search_fields_custom(monkeypatch) -> None:
     assert captured["fields"] == ["key", "title"]
 
 
+def test_quick_search_uses_min_fields(monkeypatch) -> None:
+    captured = {}
+
+    def fake_search_openlibrary(**kwargs):
+        captured.update(kwargs)
+        return {"docs": [], "numFound": 0}
+
+    monkeypatch.setattr(
+        "scifi_lib_man.api.search_openlibrary",
+        fake_search_openlibrary,
+    )
+
+    response = client.get("/books/quick-search", params={"q": "dune"})
+    assert response.status_code == 200
+    assert captured["q"] == "dune"
+    assert captured["fields"] == ["key", "title", "author_name", "first_publish_year"]
+
+
 def test_search_supports_subject_and_language(monkeypatch) -> None:
     captured = {}
 

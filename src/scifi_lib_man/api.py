@@ -208,6 +208,41 @@ def search_books(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+@app.get("/books/quick-search")
+def quick_search_books(
+    q: Annotated[
+        str,
+        Query(description="Keyword query for quick search."),
+    ],
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=100,
+            description="Optional page size (1-100).",
+        ),
+    ] = 10,
+    page: Annotated[
+        int,
+        Query(
+            ge=1,
+            description="Optional page number (>= 1).",
+        ),
+    ] = 1,
+) -> dict:
+    try:
+        return search_openlibrary(
+            q=q,
+            limit=limit,
+            page=page,
+            fields=["key", "title", "author_name", "first_publish_year"],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @app.get("/books/isbn/{isbn}")
 def get_book_by_isbn(isbn: str) -> dict:
     try:

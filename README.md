@@ -5,7 +5,7 @@ See `AGENTS.md` for repo-specific contributor/agent instructions.
 
 ## Features
 - CLI scaffold (Typer)
-- FastAPI app with `/health`, `/books/search`, `/books/isbn/{isbn}`, `/books/{olid}`, `/works/{olid}`, `/authors/{olid}`, `/books/awards/{award}/search`
+- FastAPI app with `/health`, `/books/search`, `/books/quick-search`, `/books/isbn/{isbn}`, `/books/{olid}`, `/works/{olid}`, `/authors/{olid}`, `/books/awards/{award}/search`
 - Reading list API: `/reading-list` (GET), `/reading-list/{olid}` (POST/PUT/DELETE)
 - Open Library search + ISBN detail lookup
 - Dependency sync from `pyproject.toml`
@@ -30,6 +30,7 @@ uvicorn scifi_lib_man.main:app --reload
 ```
 curl "http://127.0.0.1:8000/health"
 curl "http://127.0.0.1:8000/books/search?author=Ayn%20Rand&limit=5"
+curl "http://127.0.0.1:8000/books/quick-search?q=dune"
 curl "http://127.0.0.1:8000/books/search?subject=cyberpunk&subject_key=science_fiction&language=eng"
 curl "http://127.0.0.1:8000/books/search?year_from=1990&year_to=1999"
 curl "http://127.0.0.1:8000/books/isbn/9780143111580"
