@@ -24,6 +24,18 @@ Personal Science Fiction Library Manager. Manage a reading list of Hugo/Nebula/L
 - Sync deps: `make sync-requirements`
 - Tests: `pytest`
 
+## Frontend
+- Location: `frontend/` (Vite + React)
+- Install deps: `cd frontend && npm install`
+- Run dev server: `npm run dev` (default `http://127.0.0.1:5173`)
+- API base: set `VITE_API_BASE` to point at FastAPI (default `http://127.0.0.1:8000`)
+- Main files: `frontend/src/App.jsx`, `frontend/src/App.css`, `frontend/src/index.css`
+- UI flow: search calls `/books/quick-search`; reading list calls `/reading-list`
+
+### Frontend troubleshooting
+- “Failed to fetch”: ensure FastAPI is running and CORS allows `http://127.0.0.1:5173`
+- Wrong API URL: set `VITE_API_BASE=http://127.0.0.1:8000` before `npm run dev`
+
 ## Dependency Policy
 - Add runtime deps in `pyproject.toml` under `[project].dependencies`
 - Add dev tools in `[project.optional-dependencies].dev`
