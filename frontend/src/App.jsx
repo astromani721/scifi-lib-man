@@ -13,6 +13,8 @@ function App() {
   const [results, setResults] = useState([]);
   const [total, setTotal] = useState(0);
   const [statusMap, setStatusMap] = useState({});
+  const [readingList, setReadingList] = useState([]);
+  const [activeTab, setActiveTab] = useState("search");
   const [updating, setUpdating] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,7 +36,17 @@ function App() {
         map[item.work_olid] = item.status;
       }
     }
+    setReadingList(data);
     return map;
+  };
+
+  const refreshReadingList = async () => {
+    try {
+      const map = await fetchReadingList();
+      setStatusMap(map);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load list.");
+    }
   };
 
   const runSearch = async (nextPage = 1) => {
@@ -71,6 +83,10 @@ function App() {
   };
 
   useEffect(() => {
+    refreshReadingList();
+  }, []);
+
+  useEffect(() => {
     if (!query.trim()) {
       setResults([]);
       setTotal(0);
@@ -97,7 +113,7 @@ function App() {
     runSearch(nextPage);
   };
 
-  const updateStatus = async (workKey, nextStatus) => {
+  const updateStatus = async (workKey, nextStatus, year) => {
     const cleaned = workKey.replace(/^\//, "");
     const url = `${API_BASE}/reading-list/${cleaned}`;
     const hasEntry = Boolean(statusMap[workKey]);
@@ -111,21 +127,41 @@ function App() {
       const options = { method };
       if (nextStatus) {
         options.headers = { "Content-Type": "application/json" };
-        options.body = JSON.stringify({ status: nextStatus });
+        options.body = JSON.stringify({
+          status: nextStatus,
+          first_publish_year: year,
+        });
       }
       const response = await fetch(url, options);
       if (!response.ok) {
         throw new Error("Failed to update status.");
       }
-      setStatusMap((prev) => {
-        const next = { ...prev };
-        if (nextStatus) {
-          next[workKey] = nextStatus;
-        } else {
-          delete next[workKey];
-        }
-        return next;
+      await refreshReadingList();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed.");
+    } finally {
+      setUpdating((prev) => ({ ...prev, [workKey]: false }));
+    }
+  };
+
+  const updateNotesRating = async (workKey, nextNotes, nextRating) => {
+    const cleaned = workKey.replace(/^\//, "");
+    const url = `${API_BASE}/reading-list/${cleaned}`;
+    setUpdating((prev) => ({ ...prev, [workKey]: true }));
+    try {
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: statusMap[workKey],
+          notes: nextNotes,
+          rating: nextRating,
+        }),
       });
+      if (!response.ok) {
+        throw new Error("Failed to update entry.");
+      }
+      await refreshReadingList();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed.");
     } finally {
@@ -143,92 +179,203 @@ function App() {
           Quick-search Open Library works and see what’s already on your
           reading list.
         </p>
-        <form className="search" onSubmit={handleSubmit}>
-          <input
-            aria-label="Search for books"
-            placeholder="Search by title, author, subject..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? "Searching…" : "Search"}
+        <div className="tabs">
+          <button
+            type="button"
+            className={activeTab === "search" ? "tab active" : "tab"}
+            onClick={() => setActiveTab("search")}
+          >
+            Search
           </button>
-        </form>
+          <button
+            type="button"
+            className={activeTab === "list" ? "tab active" : "tab"}
+            onClick={() => setActiveTab("list")}
+          >
+            My Reading List
+          </button>
+        </div>
+        {activeTab === "search" && (
+          <form className="search" onSubmit={handleSubmit}>
+            <input
+              aria-label="Search for books"
+              placeholder="Search by title, author, subject..."
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <button type="submit" disabled={loading}>
+              {loading ? "Searching…" : "Search"}
+            </button>
+          </form>
+        )}
       </header>
 
       <main className="results">
         <div className="results__meta">
-          <span>
-            {total > 0 ? `${total.toLocaleString()} results` : "No results yet"}
-          </span>
-          <span className="results__page">
-            Page {page} of {totalPages}
-          </span>
+          {activeTab === "search" ? (
+            <>
+              <span>
+                {total > 0
+                  ? `${total.toLocaleString()} results`
+                  : "No results yet"}
+              </span>
+              <span className="results__page">
+                Page {page} of {totalPages}
+              </span>
+            </>
+          ) : (
+            <>
+              <span>{readingList.length} saved</span>
+              <span className="results__page">Reading list</span>
+            </>
+          )}
         </div>
 
         {error && <div className="notice notice--error">{error}</div>}
 
-        <div className="results__table">
-          <div className="results__row results__row--header">
-            <span>Title</span>
-            <span>Author</span>
-            <span>Year</span>
-            <span>Status</span>
+        {activeTab === "search" ? (
+          <div className="results__table">
+            <div className="results__row results__row--header">
+              <span>Title</span>
+              <span>Author</span>
+              <span>Year</span>
+              <span>Status</span>
+            </div>
+            {results.map((item) => {
+              const key = item.key;
+              const author =
+                Array.isArray(item.author_name) && item.author_name.length
+                  ? item.author_name.join(", ")
+                  : "Unknown";
+              const status = statusMap[key] || "New";
+              const disabled = Boolean(updating[key]);
+              return (
+                <div className="results__row" key={key}>
+                  <div>
+                    <div className="results__title">{item.title}</div>
+                    <div className="results__key">{key}</div>
+                  </div>
+                  <div>{author}</div>
+                  <div>{item.first_publish_year ?? "—"}</div>
+                  <div className="results__status">
+                    <select
+                      className={`status-select status-select--${status}`}
+                      value={status === "New" ? "" : status}
+                      onChange={(event) =>
+                        updateStatus(
+                          key,
+                          event.target.value,
+                          item.first_publish_year,
+                        )
+                      }
+                      disabled={disabled}
+                    >
+                      <option value="">New</option>
+                      {STATUSES.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {results.map((item) => {
-            const key = item.key;
-            const author =
-              Array.isArray(item.author_name) && item.author_name.length
-                ? item.author_name.join(", ")
+        ) : (
+          <div className="results__table">
+            <div className="results__row results__row--header results__row--list">
+              <span>Title</span>
+              <span>Author</span>
+              <span>Year</span>
+              <span>Status</span>
+              <span>Notes</span>
+              <span>Rating</span>
+            </div>
+            {readingList.map((item) => {
+              const key = item.work_olid;
+              const author = item.author_names?.length
+                ? item.author_names.join(", ")
                 : "Unknown";
-            const status = statusMap[key] || "New";
-            const disabled = Boolean(updating[key]);
-            return (
-              <div className="results__row" key={key}>
-                <div>
-                  <div className="results__title">{item.title}</div>
-                  <div className="results__key">{key}</div>
+              const disabled = Boolean(updating[key]);
+              return (
+                <div className="results__row results__row--list" key={key}>
+                  <div>
+                    <div className="results__title">{item.title}</div>
+                    <div className="results__key">{key}</div>
+                  </div>
+                  <div>{author}</div>
+                  <div>{item.first_publish_year ?? "—"}</div>
+                  <div className="results__status">
+                    <select
+                      className={`status-select status-select--${item.status}`}
+                      value={item.status}
+                      onChange={(event) =>
+                        updateStatus(key, event.target.value)
+                      }
+                      disabled={disabled}
+                    >
+                      {STATUSES.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <textarea
+                      className="notes"
+                      rows={2}
+                      defaultValue={item.notes ?? ""}
+                      placeholder="Add notes…"
+                      onBlur={(event) =>
+                        updateNotesRating(
+                          key,
+                          event.target.value,
+                          item.rating,
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <input
+                      className="rating"
+                      type="number"
+                      min="1"
+                      max="5"
+                      defaultValue={item.rating ?? ""}
+                      placeholder="—"
+                      onBlur={(event) => {
+                        const value = event.target.value;
+                        const rating = value ? Number(value) : null;
+                        updateNotesRating(key, item.notes, rating);
+                      }}
+                    />
+                  </div>
                 </div>
-                <div>{author}</div>
-                <div>{item.first_publish_year ?? "—"}</div>
-                <div className="results__status">
-                  <select
-                    className={`status-select status-select--${status}`}
-                    value={status === "New" ? "" : status}
-                    onChange={(event) =>
-                      updateStatus(key, event.target.value)
-                    }
-                    disabled={disabled}
-                  >
-                    <option value="">New</option>
-                    {STATUSES.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
-        <div className="pagination">
-          <button
-            type="button"
-            onClick={() => handlePageChange(-1)}
-            disabled={page <= 1 || loading}
-          >
-            Prev
-          </button>
-          <button
-            type="button"
-            onClick={() => handlePageChange(1)}
-            disabled={page >= totalPages || loading}
-          >
-            Next
-          </button>
-        </div>
+        {activeTab === "search" && (
+          <div className="pagination">
+            <button
+              type="button"
+              onClick={() => handlePageChange(-1)}
+              disabled={page <= 1 || loading}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePageChange(1)}
+              disabled={page >= totalPages || loading}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

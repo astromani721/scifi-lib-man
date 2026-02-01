@@ -64,6 +64,7 @@ def extract_work_fields(record: dict) -> dict:
     return {
         "olid": record.get("key"),
         "title": record.get("title") or "Unknown title",
+        "first_publish_year": record.get("first_publish_year"),
     }
 
 

@@ -30,7 +30,8 @@ def init_db(conn: sqlite3.Connection) -> None:
         """
         CREATE TABLE IF NOT EXISTS works (
             olid TEXT PRIMARY KEY,
-            title TEXT NOT NULL
+            title TEXT NOT NULL,
+            first_publish_year INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS authors (
@@ -64,20 +65,24 @@ def upsert_work(
     *,
     olid: str,
     title: str,
+    first_publish_year: int | None = None,
 ) -> None:
     conn.execute(
         """
         INSERT INTO works (
             olid,
-            title
+            title,
+            first_publish_year
         )
-        VALUES (?, ?)
+        VALUES (?, ?, ?)
         ON CONFLICT(olid) DO UPDATE SET
-            title = excluded.title
+            title = excluded.title,
+            first_publish_year = excluded.first_publish_year
         """,
         (
             olid,
             title,
+            first_publish_year,
         ),
     )
 
@@ -157,7 +162,8 @@ def get_reading_list(
             rl.added_at,
             rl.notes,
             rl.rating,
-            w.title
+            w.title,
+            w.first_publish_year
         FROM reading_list_works rl
         JOIN works w ON w.olid = rl.work_olid
     """
@@ -172,14 +178,16 @@ def get_reading_list(
     for row in rows:
         author_rows = conn.execute(
             """
-            SELECT author_olid
-            FROM work_authors
-            WHERE work_olid = ?
-            ORDER BY author_order ASC
+            SELECT wa.author_olid, a.name
+            FROM work_authors wa
+            LEFT JOIN authors a ON a.olid = wa.author_olid
+            WHERE wa.work_olid = ?
+            ORDER BY wa.author_order ASC
             """,
             (row["work_olid"],),
         ).fetchall()
         author_olids = [author_row["author_olid"] for author_row in author_rows]
+        author_names = [author_row["name"] for author_row in author_rows if author_row["name"]]
         results.append(
             {
                 "work_olid": row["work_olid"],
@@ -188,7 +196,9 @@ def get_reading_list(
                 "notes": row["notes"],
                 "rating": row["rating"],
                 "title": row["title"],
+                "first_publish_year": row["first_publish_year"],
                 "author_olids": author_olids,
+                "author_names": author_names,
             }
         )
     return results

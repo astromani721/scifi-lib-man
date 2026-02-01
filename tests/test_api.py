@@ -251,7 +251,7 @@ def test_reading_list_add_and_list(monkeypatch, tmp_path) -> None:
 
     response = client.post(
         "/reading-list/works/OL1W",
-        json={"status": "wishlist"},
+        json={"status": "wishlist", "first_publish_year": 1969},
     )
     assert response.status_code == 200
 

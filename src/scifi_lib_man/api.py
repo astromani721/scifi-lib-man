@@ -50,6 +50,7 @@ class ReadingListEntry(BaseModel):
     status: str = Field(..., description="read, reading, or wishlist.")
     notes: str | None = None
     rating: int | None = None
+    first_publish_year: int | None = None
 
 
 def get_db() -> Iterator:
@@ -294,6 +295,8 @@ def add_reading_list_entry(
         normalized_key = _normalize_work_key(olid_path)
         record = fetch_work_by_olid(normalized_key)
         work_fields = extract_work_fields(record)
+        if work_fields.get("first_publish_year") is None and payload.first_publish_year:
+            work_fields["first_publish_year"] = payload.first_publish_year
         if not work_fields["olid"]:
             raise HTTPException(status_code=502, detail="Work key missing from record.")
         upsert_work(conn, **work_fields)
