@@ -169,6 +169,23 @@ function App() {
     }
   };
 
+  const deleteEntry = async (workKey) => {
+    const cleaned = workKey.replace(/^\//, "");
+    const url = `${API_BASE}/reading-list/${cleaned}`;
+    setUpdating((prev) => ({ ...prev, [workKey]: true }));
+    try {
+      const response = await fetch(url, { method: "DELETE" });
+      if (!response.ok) {
+        throw new Error("Failed to delete entry.");
+      }
+      await refreshReadingList();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setUpdating((prev) => ({ ...prev, [workKey]: false }));
+    }
+  };
+
   return (
     <div className="app">
       <header className="hero">
@@ -291,6 +308,7 @@ function App() {
               <span>Status</span>
               <span>Notes</span>
               <span>Rating</span>
+              <span></span>
             </div>
             {readingList.map((item) => {
               const key = item.work_olid;
@@ -311,7 +329,7 @@ function App() {
                       className={`status-select status-select--${item.status}`}
                       value={item.status}
                       onChange={(event) =>
-                        updateStatus(key, event.target.value)
+                        updateStatus(key, event.target.value, null)
                       }
                       disabled={disabled}
                     >
@@ -351,6 +369,16 @@ function App() {
                         updateNotesRating(key, item.notes, rating);
                       }}
                     />
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      className="delete"
+                      onClick={() => deleteEntry(key)}
+                      disabled={disabled}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               );
