@@ -65,6 +65,20 @@ scifi-lib-man list --status wishlist
 scifi-lib-man remove /works/OL45804W
 ```
 
+## Frontend UI
+The React UI lives in `frontend/`.
+
+```
+cd frontend
+npm install
+npm run dev
+```
+
+By default it calls `http://127.0.0.1:8000`. Override with:
+```
+VITE_API_BASE=http://127.0.0.1:8000 npm run dev
+```
+
 ## Tests
 ```
 pytest
