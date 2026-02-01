@@ -98,9 +98,7 @@ def build_award_query(
     if year is not None and (year_from is not None or year_to is not None):
         raise ValueError("Use either year or year_from/year_to, not both.")
 
-    filter_terms = [
-        f"{field}:{_quote_term(value)}" for field, value in award_filters
-    ]
+    filter_terms = [f"{field}:{_quote_term(value)}" for field, value in award_filters]
     subject_clause = filter_terms[0]
     if len(filter_terms) > 1:
         subject_clause = "(" + " OR ".join(filter_terms) + ")"
@@ -177,7 +175,9 @@ def search_openlibrary(
     if year_from is not None or year_to is not None:
         start = "*" if year_from is None else year_from
         end = "*" if year_to is None else year_to
-        params["q"] = _append_query(params.get("q"), f"first_publish_year:[{start} TO {end}]")
+        params["q"] = _append_query(
+            params.get("q"), f"first_publish_year:[{start} TO {end}]"
+        )
 
     try:
         response = requests.get(SEARCH_ENDPOINT, params=params, timeout=10)

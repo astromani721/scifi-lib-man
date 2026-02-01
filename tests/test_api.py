@@ -111,7 +111,11 @@ def test_search_supports_subject_and_language(monkeypatch) -> None:
 
     response = client.get(
         "/books/search",
-        params={"subject": "cyberpunk", "language": "eng", "subject_key": "science_fiction"},
+        params={
+            "subject": "cyberpunk",
+            "language": "eng",
+            "subject_key": "science_fiction",
+        },
     )
     assert response.status_code == 200
     assert captured["subject"] == "cyberpunk"
@@ -213,7 +217,7 @@ def test_author_by_olid_invalid_suffix() -> None:
 def test_reading_list_add_and_list(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("SCIFI_LIB_MAN_DB", str(tmp_path / "test.db"))
 
-    def fake_fetch_book_by_olid(_olid: str):
+    def fake_fetch_work_by_olid(_olid: str):
         return {
             "key": "/works/OL1W",
             "title": "Test Book",
@@ -223,12 +227,12 @@ def test_reading_list_add_and_list(monkeypatch, tmp_path) -> None:
         }
 
     monkeypatch.setattr(
-        "scifi_lib_man.api.fetch_book_by_olid",
-        fake_fetch_book_by_olid,
+        "scifi_lib_man.api.fetch_work_by_olid",
+        fake_fetch_work_by_olid,
     )
 
     response = client.post(
-        "/reading-list/books/OL1M",
+        "/reading-list/works/OL1W",
         json={"status": "wishlist"},
     )
     assert response.status_code == 200
@@ -237,34 +241,34 @@ def test_reading_list_add_and_list(monkeypatch, tmp_path) -> None:
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["book_olid"] == "/works/OL1W"
+    assert data[0]["work_olid"] == "/works/OL1W"
 
 
 def test_reading_list_update(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("SCIFI_LIB_MAN_DB", str(tmp_path / "test.db"))
 
-    def fake_fetch_book_by_olid(_olid: str):
-        return {"key": "/books/OL2M", "title": "Test Book"}
+    def fake_fetch_work_by_olid(_olid: str):
+        return {"key": "/works/OL2W", "title": "Test Book"}
 
     monkeypatch.setattr(
-        "scifi_lib_man.api.fetch_book_by_olid",
-        fake_fetch_book_by_olid,
+        "scifi_lib_man.api.fetch_work_by_olid",
+        fake_fetch_work_by_olid,
     )
 
     response = client.post(
-        "/reading-list/books/OL2M",
+        "/reading-list/works/OL2W",
         json={"status": "wishlist"},
     )
     assert response.status_code == 200
 
     response = client.put(
-        "/reading-list/books/OL2W",
+        "/reading-list/works/OL2M",
         json={"status": "read", "rating": 4},
     )
     assert response.status_code == 404
 
     response = client.put(
-        "/reading-list/books/OL2M",
+        "/reading-list/works/OL2W",
         json={"status": "read", "rating": 4},
     )
     assert response.status_code == 200
@@ -274,16 +278,16 @@ def test_reading_list_update(monkeypatch, tmp_path) -> None:
 def test_reading_list_delete(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("SCIFI_LIB_MAN_DB", str(tmp_path / "test.db"))
 
-    def fake_fetch_book_by_olid(_olid: str):
-        return {"key": "/books/OL3M", "title": "Test Book"}
+    def fake_fetch_work_by_olid(_olid: str):
+        return {"key": "/works/OL3W", "title": "Test Book"}
 
     monkeypatch.setattr(
-        "scifi_lib_man.api.fetch_book_by_olid",
-        fake_fetch_book_by_olid,
+        "scifi_lib_man.api.fetch_work_by_olid",
+        fake_fetch_work_by_olid,
     )
 
     response = client.post(
-        "/reading-list/books/OL3M",
+        "/reading-list/works/OL3W",
         json={"status": "wishlist"},
     )
     assert response.status_code == 200
@@ -292,6 +296,9 @@ def test_reading_list_delete(monkeypatch, tmp_path) -> None:
     assert response.status_code == 404
 
     response = client.delete("/reading-list/books/OL3M")
+    assert response.status_code == 404
+
+    response = client.delete("/reading-list/works/OL3W")
     assert response.status_code == 200
     assert response.json()["deleted"] is True
 
@@ -318,9 +325,9 @@ def test_award_search_pulitzer_subjects(monkeypatch) -> None:
     assert response.status_code == 200
     assert "subject_key:pulitzer_prize_winner" in captured["q"]
     assert "subject_key:pulitzer_prizes" in captured["q"]
-    assert "subject:\"Pulitzer Prize\"" in captured["q"]
-    assert "subject:\"Pulitzer Prize Winner\"" in captured["q"]
-    assert "subject:\"Pulitzer Prizes\"" in captured["q"]
+    assert 'subject:"Pulitzer Prize"' in captured["q"]
+    assert 'subject:"Pulitzer Prize Winner"' in captured["q"]
+    assert 'subject:"Pulitzer Prizes"' in captured["q"]
     assert " OR " in captured["q"]
 
 
@@ -339,10 +346,10 @@ def test_award_search_booker_subjects(monkeypatch) -> None:
     response = client.get("/books/awards/booker/search")
     assert response.status_code == 200
     assert "subject_key:man_booker_prize_winner" in captured["q"]
-    assert "subject:\"Booker Prize\"" in captured["q"]
-    assert "subject:\"Man Booker Prize\"" in captured["q"]
-    assert "subject:\"Booker Prize Winner\"" in captured["q"]
-    assert "subject:\"Man Booker Prize Winner\"" in captured["q"]
+    assert 'subject:"Booker Prize"' in captured["q"]
+    assert 'subject:"Man Booker Prize"' in captured["q"]
+    assert 'subject:"Booker Prize Winner"' in captured["q"]
+    assert 'subject:"Man Booker Prize Winner"' in captured["q"]
     assert " OR " in captured["q"]
 
 
@@ -362,9 +369,9 @@ def test_award_search_nobel_subjects(monkeypatch) -> None:
     assert response.status_code == 200
     assert "subject_key:nobel_prize_winners" in captured["q"]
     assert "subject_key:nobel_prizes" in captured["q"]
-    assert "subject:\"Nobel Prize\"" in captured["q"]
-    assert "subject:\"Nobel Prize winners\"" in captured["q"]
-    assert "subject:\"Nobel Prizes\"" in captured["q"]
+    assert 'subject:"Nobel Prize"' in captured["q"]
+    assert 'subject:"Nobel Prize winners"' in captured["q"]
+    assert 'subject:"Nobel Prizes"' in captured["q"]
     assert " OR " in captured["q"]
 
 
@@ -386,7 +393,7 @@ def test_award_search_builds_query(monkeypatch) -> None:
     )
     assert response.status_code == 200
     assert "subject_key:hugo_award_winner" in captured["q"]
-    assert "author:\"Ursula Le Guin\"" in captured["q"]
+    assert 'author:"Ursula Le Guin"' in captured["q"]
     assert "first_publish_year:1969" in captured["q"]
 
 
@@ -404,7 +411,11 @@ def test_award_search_subject_language(monkeypatch) -> None:
 
     response = client.get(
         "/books/awards/hugo/search",
-        params={"subject": "cyberpunk", "language": "eng", "subject_key": "science_fiction"},
+        params={
+            "subject": "cyberpunk",
+            "language": "eng",
+            "subject_key": "science_fiction",
+        },
     )
     assert response.status_code == 200
     assert "subject:cyberpunk" in captured["q"]
@@ -427,7 +438,7 @@ def test_award_search_nebula_subjects(monkeypatch) -> None:
     response = client.get("/books/awards/nebula/search")
     assert response.status_code == 200
     assert "subject_key:nebula_award_winner" in captured["q"]
-    assert "subject:\"Nebula Award\"" in captured["q"]
+    assert 'subject:"Nebula Award"' in captured["q"]
     assert " OR " in captured["q"]
 
 
@@ -446,6 +457,6 @@ def test_award_search_locus_subjects(monkeypatch) -> None:
     response = client.get("/books/awards/locus/search")
     assert response.status_code == 200
     assert "subject_key:locus_award_winner" in captured["q"]
-    assert "subject:\"Locus Award\"" in captured["q"]
-    assert "subject:\"Locus Awards\"" in captured["q"]
+    assert 'subject:"Locus Award"' in captured["q"]
+    assert 'subject:"Locus Awards"' in captured["q"]
     assert " OR " in captured["q"]

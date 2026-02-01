@@ -14,16 +14,14 @@ def _connect(tmp_path) -> sqlite3.Connection:
 
 def test_upsert_and_list(tmp_path) -> None:
     conn = _connect(tmp_path)
-    storage.upsert_book(
+    storage.upsert_work(
         conn,
         olid="/works/OL1W",
         title="Test Book",
-        publish_date="1969",
-        num_pages=300,
     )
     storage.add_to_reading_list(
         conn,
-        book_olid="/works/OL1W",
+        work_olid="/works/OL1W",
         status="wishlist",
         notes="Try this soon",
         rating=5,
@@ -33,17 +31,17 @@ def test_upsert_and_list(tmp_path) -> None:
     entries = storage.get_reading_list(conn, status="wishlist")
     assert len(entries) == 1
     entry = entries[0]
-    assert entry["book_olid"] == "/works/OL1W"
+    assert entry["work_olid"] == "/works/OL1W"
     assert entry["title"] == "Test Book"
 
 
 def test_invalid_status(tmp_path) -> None:
     conn = _connect(tmp_path)
-    storage.upsert_book(conn, olid="/works/OL2W", title="Other")
+    storage.upsert_work(conn, olid="/works/OL2W", title="Other")
     conn.commit()
 
     try:
-        storage.add_to_reading_list(conn, book_olid="/works/OL2W", status="bad")
+        storage.add_to_reading_list(conn, work_olid="/works/OL2W", status="bad")
     except ValueError as exc:
         assert "status must be one of" in str(exc)
     else:

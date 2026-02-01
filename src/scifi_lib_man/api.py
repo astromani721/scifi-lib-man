@@ -5,14 +5,14 @@ from pydantic import BaseModel, Field
 
 from .catalog import (
     extract_authors,
-    extract_book_fields,
+    extract_work_fields,
     fetch_author_by_olid,
     fetch_book_by_olid,
+    fetch_work_by_olid,
     normalize_author_entries,
 )
 from .openlibrary import (
     AWARD_FILTERS,
-    BOOK_PREFIX,
     REQUIRED_FIELDS,
     WORK_PREFIX,
     build_award_query,
@@ -20,8 +20,8 @@ from .openlibrary import (
     search_openlibrary,
 )
 from .storage import (
-    add_book_author,
     add_to_reading_list,
+    add_work_author,
     connect,
     get_db_path,
     get_reading_list,
@@ -29,7 +29,7 @@ from .storage import (
     init_db,
     remove_from_reading_list,
     upsert_author,
-    upsert_book,
+    upsert_work,
 )
 
 app = FastAPI(title="Sci-Fi Library Manager", version="0.1.0")
@@ -50,27 +50,27 @@ def get_db() -> Iterator:
         conn.close()
 
 
-def _normalize_book_key(value: str) -> str:
+def _normalize_work_key(value: str) -> str:
     trimmed = value.strip()
     if not trimmed:
-        raise HTTPException(status_code=404, detail="Book OLID must be provided.")
-    if trimmed.startswith(BOOK_PREFIX):
-        if not trimmed.endswith("M"):
+        raise HTTPException(status_code=404, detail="Work OLID must be provided.")
+    if trimmed.startswith(WORK_PREFIX):
+        if not trimmed.endswith("W"):
             raise HTTPException(
                 status_code=404,
-                detail="Book OLID must be an edition key ending with M.",
+                detail="Work OLID must be a work key ending with W.",
             )
         return trimmed
-    if trimmed.startswith("books/"):
-        if not trimmed.endswith("M"):
+    if trimmed.startswith("works/"):
+        if not trimmed.endswith("W"):
             raise HTTPException(
                 status_code=404,
-                detail="Book OLID must be an edition key ending with M.",
+                detail="Work OLID must be a work key ending with W.",
             )
         return f"/{trimmed}"
     raise HTTPException(
         status_code=404,
-        detail="Book OLID must be a /books/ key ending with M.",
+        detail="Work OLID must be a /works/ key ending with W.",
     )
 
 
@@ -81,86 +81,86 @@ def health() -> dict:
 
 @app.get("/books/search")
 def search_books(
-        q: Annotated[
-            str | None,
-            Query(
-                description=(
-                        "Optional keyword search. At least one of q, title, author, or isbn is required."
-                )
+    q: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Optional keyword search. At least one of q, title, author, or isbn is required."
+            )
+        ),
+    ] = None,
+    title: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Optional title search. At least one of q, title, author, or isbn is required."
             ),
-        ] = None,
-        title: Annotated[
-            str | None,
-            Query(
-                description=(
-                        "Optional title search. At least one of q, title, author, or isbn is required."
-                ),
+        ),
+    ] = None,
+    author: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Optional author search. At least one of q, title, author, or isbn is required."
             ),
-        ] = None,
-        author: Annotated[
-            str | None,
-            Query(
-                description=(
-                        "Optional author search. At least one of q, title, author, or isbn is required."
-                ),
+        ),
+    ] = None,
+    isbn: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Optional ISBN search. At least one of q, title, author, or isbn is required."
             ),
-        ] = None,
-        isbn: Annotated[
-            str | None,
-            Query(
-                description=(
-                    "Optional ISBN search. At least one of q, title, author, or isbn is required."
-                ),
+        ),
+    ] = None,
+    subject: Annotated[
+        str | None,
+        Query(description="Optional subject filter."),
+    ] = None,
+    subject_key: Annotated[
+        str | None,
+        Query(description="Optional subject key filter (normalized subject)."),
+    ] = None,
+    language: Annotated[
+        str | None,
+        Query(description="Optional language filter."),
+    ] = None,
+    year: Annotated[
+        int | None,
+        Query(description="Optional year filter (first publish year)."),
+    ] = None,
+    year_from: Annotated[
+        int | None,
+        Query(description="Optional start year for a range filter."),
+    ] = None,
+    year_to: Annotated[
+        int | None,
+        Query(description="Optional end year for a range filter."),
+    ] = None,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=100,
+            description="Optional page size (1-100).",
+        ),
+    ] = 10,
+    page: Annotated[
+        int,
+        Query(
+            ge=1,
+            description="Optional page number (>= 1).",
+        ),
+    ] = 1,
+    fields: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Optional list of response fields. If omitted, defaults to required fields: "
+                + ", ".join(REQUIRED_FIELDS)
             ),
-        ] = None,
-        subject: Annotated[
-            str | None,
-            Query(description="Optional subject filter."),
-        ] = None,
-        subject_key: Annotated[
-            str | None,
-            Query(description="Optional subject key filter (normalized subject)."),
-        ] = None,
-        language: Annotated[
-            str | None,
-            Query(description="Optional language filter."),
-        ] = None,
-        year: Annotated[
-            int | None,
-            Query(description="Optional year filter (first publish year)."),
-        ] = None,
-        year_from: Annotated[
-            int | None,
-            Query(description="Optional start year for a range filter."),
-        ] = None,
-        year_to: Annotated[
-            int | None,
-            Query(description="Optional end year for a range filter."),
-        ] = None,
-        limit: Annotated[
-            int,
-            Query(
-                ge=1,
-                le=100,
-                description="Optional page size (1-100).",
-            ),
-        ] = 10,
-        page: Annotated[
-            int,
-            Query(
-                ge=1,
-                description="Optional page number (>= 1).",
-            ),
-        ] = 1,
-        fields: Annotated[
-            list[str] | None,
-            Query(
-                description=(
-                        "Optional list of response fields. If omitted, defaults to required fields: "
-                        + ", ".join(REQUIRED_FIELDS)
-                ),
-            ),
-        ] = None,
+        ),
+    ] = None,
 ) -> dict:
     if not any(
         [
@@ -245,12 +245,12 @@ def add_reading_list_entry(
     conn=Depends(get_db),
 ) -> dict:
     try:
-        normalized_key = _normalize_book_key(olid_path)
-        record = fetch_book_by_olid(normalized_key)
-        book_fields = extract_book_fields(record)
-        if not book_fields["olid"]:
-            raise HTTPException(status_code=502, detail="Book key missing from record.")
-        upsert_book(conn, **book_fields)
+        normalized_key = _normalize_work_key(olid_path)
+        record = fetch_work_by_olid(normalized_key)
+        work_fields = extract_work_fields(record)
+        if not work_fields["olid"]:
+            raise HTTPException(status_code=502, detail="Work key missing from record.")
+        upsert_work(conn, **work_fields)
         authors = normalize_author_entries(extract_authors(record))
         for index, author in enumerate(authors):
             author_key = author["key"]
@@ -266,21 +266,21 @@ def add_reading_list_entry(
                 olid=author_key,
                 name=name,
             )
-            add_book_author(
+            add_work_author(
                 conn,
-                book_olid=book_fields["olid"],
+                work_olid=work_fields["olid"],
                 author_olid=author_key,
                 author_order=index,
             )
         add_to_reading_list(
             conn,
-            book_olid=book_fields["olid"],
+            work_olid=work_fields["olid"],
             status=payload.status,
             notes=payload.notes,
             rating=payload.rating,
         )
         conn.commit()
-        return {"book_olid": book_fields["olid"], "status": payload.status}
+        return {"work_olid": work_fields["olid"], "status": payload.status}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -307,10 +307,10 @@ def update_reading_list_entry(
     payload: ReadingListEntry,
     conn=Depends(get_db),
 ) -> dict:
-    normalized = _normalize_book_key(olid_path)
-    entry = get_reading_list_entry(conn, book_olid=normalized)
+    normalized = _normalize_work_key(olid_path)
+    entry = get_reading_list_entry(conn, work_olid=normalized)
     if entry is None:
-        raise HTTPException(status_code=404, detail="Book not found in reading list.")
+        raise HTTPException(status_code=404, detail="Work not found in reading list.")
 
     status = payload.status or entry["status"]
     notes = payload.notes if payload.notes is not None else entry["notes"]
@@ -318,23 +318,23 @@ def update_reading_list_entry(
     try:
         add_to_reading_list(
             conn,
-            book_olid=normalized,
+            work_olid=normalized,
             status=status,
             notes=notes,
             rating=rating,
         )
         conn.commit()
-        return {"book_olid": normalized, "status": status}
+        return {"work_olid": normalized, "status": status}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.delete("/reading-list/{olid_path:path}")
 def delete_reading_list_entry(olid_path: str, conn=Depends(get_db)) -> dict:
-    normalized = _normalize_book_key(olid_path)
-    remove_from_reading_list(conn, book_olid=normalized)
+    normalized = _normalize_work_key(olid_path)
+    remove_from_reading_list(conn, work_olid=normalized)
     conn.commit()
-    return {"book_olid": normalized, "deleted": True}
+    return {"work_olid": normalized, "deleted": True}
 
 
 @app.get("/books/awards/{award}/search")
@@ -439,5 +439,15 @@ def search_award_books(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/works/{olid}")
+def get_work_by_olid(olid: str) -> dict:
+    try:
+        return fetch_work_by_olid(olid)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

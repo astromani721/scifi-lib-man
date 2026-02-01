@@ -22,6 +22,21 @@ def fetch_book_by_olid(olid: str) -> dict:
     return fetch_by_key(key, allowed_prefixes=allowed)
 
 
+def fetch_work_by_olid(olid: str) -> dict:
+    normalized = olid.strip()
+    if not normalized:
+        raise ValueError("OLID must be a non-empty string.")
+    if normalized.startswith(WORK_PREFIX):
+        key = normalized
+    elif normalized.startswith("works/"):
+        key = f"/{normalized}"
+    elif normalized.startswith("OL") and normalized.endswith("W"):
+        key = f"{WORK_PREFIX}{normalized}"
+    else:
+        raise ValueError("Work OLID must be a work key ending with W.")
+    return fetch_by_key(key, allowed_prefixes=(WORK_PREFIX,))
+
+
 def fetch_author_by_olid(olid: str) -> dict:
     normalized = olid.strip()
     if not normalized:
@@ -45,12 +60,10 @@ def _coerce_list(value: object) -> list:
     return [value]
 
 
-def extract_book_fields(record: dict) -> dict:
+def extract_work_fields(record: dict) -> dict:
     return {
         "olid": record.get("key"),
         "title": record.get("title") or "Unknown title",
-        "publish_date": record.get("publish_date"),
-        "num_pages": record.get("number_of_pages"),
     }
 
 

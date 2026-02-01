@@ -2,21 +2,21 @@ import typer
 
 from .catalog import (
     extract_authors,
-    extract_book_fields,
+    extract_work_fields,
     fetch_author_by_olid,
-    fetch_book_by_olid,
+    fetch_work_by_olid,
     normalize_author_entries,
 )
 from .storage import (
-    add_book_author,
     add_to_reading_list,
+    add_work_author,
     connect,
     get_db_path,
     get_reading_list,
     init_db,
     remove_from_reading_list,
     upsert_author,
-    upsert_book,
+    upsert_work,
 )
 
 
@@ -36,7 +36,9 @@ def health() -> None:
 
 
 @app.command("init-db")
-def init_db_cmd(db_path: str = typer.Option(None, help="SQLite DB path override.")) -> None:
+def init_db_cmd(
+    db_path: str = typer.Option(None, help="SQLite DB path override."),
+) -> None:
     """Create the SQLite schema."""
     conn = connect(db_path or get_db_path())
     init_db(conn)
@@ -47,7 +49,7 @@ def init_db_cmd(db_path: str = typer.Option(None, help="SQLite DB path override.
 @app.command("add")
 def add_to_list(
     olid: str = typer.Argument(
-        ..., help="Open Library key (e.g., /books/OL123M)."
+        ..., help="Open Library work key (e.g., /works/OL123W)."
     ),
     status: str = typer.Option("wishlist", help="read, reading, or wishlist."),
     notes: str | None = typer.Option(None, help="Optional notes."),
@@ -56,16 +58,16 @@ def add_to_list(
 ) -> None:
     """Add/update a book in the reading list."""
     normalized = olid.strip()
-    if normalized.startswith("books/"):
+    if normalized.startswith("works/"):
         normalized = f"/{normalized}"
-    if not normalized.startswith("/books/") or not normalized.endswith("M"):
-        raise typer.BadParameter("Use a /books/ key ending with M (edition).")
+    if not normalized.startswith("/works/") or not normalized.endswith("W"):
+        raise typer.BadParameter("Use a /works/ key ending with W (work).")
 
-    record = fetch_book_by_olid(normalized)
-    book_fields = extract_book_fields(record)
+    record = fetch_work_by_olid(normalized)
+    work_fields = extract_work_fields(record)
     conn = connect(db_path or get_db_path())
     init_db(conn)
-    upsert_book(conn, **book_fields)
+    upsert_work(conn, **work_fields)
     authors = normalize_author_entries(extract_authors(record))
     for index, author in enumerate(authors):
         author_key = author["key"]
@@ -81,15 +83,15 @@ def add_to_list(
             olid=author_key,
             name=name,
         )
-        add_book_author(
+        add_work_author(
             conn,
-            book_olid=book_fields["olid"],
+            work_olid=work_fields["olid"],
             author_olid=author_key,
             author_order=index,
         )
     add_to_reading_list(
         conn,
-        book_olid=book_fields["olid"],
+        work_olid=work_fields["olid"],
         status=status,
         notes=notes,
         rating=rating,
@@ -110,7 +112,7 @@ def list_entries(
     entries = get_reading_list(conn, status=status)
     conn.close()
     for entry in entries:
-        typer.echo(f"{entry['book_olid']} [{entry['status']}] {entry['title']}")
+        typer.echo(f"{entry['work_olid']} [{entry['status']}] {entry['title']}")
 
 
 @app.command("remove")
@@ -121,7 +123,7 @@ def remove_entry(
     """Remove a book from the reading list."""
     conn = connect(db_path or get_db_path())
     init_db(conn)
-    remove_from_reading_list(conn, book_olid=olid)
+    remove_from_reading_list(conn, work_olid=olid)
     conn.commit()
     conn.close()
     typer.echo("ok")

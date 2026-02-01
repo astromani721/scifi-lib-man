@@ -35,7 +35,7 @@ Personal Science Fiction Library Manager. Manage a reading list of Hugo/Nebula/L
 - Keep CLI and API using the same underlying storage + models
 - Add new functionality in `src/scifi_lib_man/` and test in `tests/`
 - Prefer simple, explicit Python over clever abstractions
-- API routes: `/health`, `/books/search`, `/books/isbn/{isbn}`, `/books/{olid}`, `/authors/{olid}`, `/books/awards/{award}/search`, `/reading-list`
+- API routes: `/health`, `/books/search`, `/books/isbn/{isbn}`, `/books/{olid}`, `/works/{olid}`, `/authors/{olid}`, `/books/awards/{award}/search`, `/reading-list`
 
 ## Guardrails
 - Avoid breaking storage format once chosen

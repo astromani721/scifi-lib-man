@@ -28,11 +28,9 @@ def connect(db_path: str | None = None) -> sqlite3.Connection:
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
-        CREATE TABLE IF NOT EXISTS books (
+        CREATE TABLE IF NOT EXISTS works (
             olid TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            publish_date TEXT,
-            num_pages INTEGER
+            title TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS authors (
@@ -40,54 +38,46 @@ def init_db(conn: sqlite3.Connection) -> None:
             name TEXT
         );
 
-        CREATE TABLE IF NOT EXISTS book_authors (
-            book_olid TEXT NOT NULL,
+        CREATE TABLE IF NOT EXISTS work_authors (
+            work_olid TEXT NOT NULL,
             author_olid TEXT NOT NULL,
             author_order INTEGER,
-            PRIMARY KEY (book_olid, author_olid),
-            FOREIGN KEY (book_olid) REFERENCES books(olid) ON DELETE CASCADE,
+            PRIMARY KEY (work_olid, author_olid),
+            FOREIGN KEY (work_olid) REFERENCES works(olid) ON DELETE CASCADE,
             FOREIGN KEY (author_olid) REFERENCES authors(olid) ON DELETE CASCADE
         );
 
-        CREATE TABLE IF NOT EXISTS reading_list (
-            olid TEXT PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS reading_list_works (
+            work_olid TEXT PRIMARY KEY,
             status TEXT NOT NULL CHECK (status IN ('read', 'reading', 'wishlist')),
             added_at TEXT NOT NULL DEFAULT (datetime('now')),
             notes TEXT,
             rating INTEGER,
-            FOREIGN KEY (olid) REFERENCES books(olid) ON DELETE CASCADE
+            FOREIGN KEY (work_olid) REFERENCES works(olid) ON DELETE CASCADE
         );
         """
     )
 
 
-def upsert_book(
+def upsert_work(
     conn: sqlite3.Connection,
     *,
     olid: str,
     title: str,
-    publish_date: str | None = None,
-    num_pages: int | None = None,
 ) -> None:
     conn.execute(
         """
-        INSERT INTO books (
+        INSERT INTO works (
             olid,
-            title,
-            publish_date,
-            num_pages
+            title
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?)
         ON CONFLICT(olid) DO UPDATE SET
-            title = excluded.title,
-            publish_date = excluded.publish_date,
-            num_pages = excluded.num_pages
+            title = excluded.title
         """,
         (
             olid,
             title,
-            publish_date,
-            num_pages,
         ),
     )
 
@@ -109,26 +99,26 @@ def upsert_author(
     )
 
 
-def add_book_author(
+def add_work_author(
     conn: sqlite3.Connection,
     *,
-    book_olid: str,
+    work_olid: str,
     author_olid: str,
     author_order: int | None = None,
 ) -> None:
     conn.execute(
         """
-        INSERT OR IGNORE INTO book_authors (book_olid, author_olid, author_order)
+        INSERT OR IGNORE INTO work_authors (work_olid, author_olid, author_order)
         VALUES (?, ?, ?)
         """,
-        (book_olid, author_olid, author_order),
+        (work_olid, author_olid, author_order),
     )
 
 
 def add_to_reading_list(
     conn: sqlite3.Connection,
     *,
-    book_olid: str,
+    work_olid: str,
     status: str,
     notes: str | None = None,
     rating: int | None = None,
@@ -137,21 +127,21 @@ def add_to_reading_list(
         raise ValueError("status must be one of: read, reading, wishlist.")
     conn.execute(
         """
-        INSERT INTO reading_list (olid, status, notes, rating)
+        INSERT INTO reading_list_works (work_olid, status, notes, rating)
         VALUES (?, ?, ?, ?)
-        ON CONFLICT(olid) DO UPDATE SET
+        ON CONFLICT(work_olid) DO UPDATE SET
             status = excluded.status,
             notes = excluded.notes,
             rating = excluded.rating
         """,
-        (book_olid, status, notes, rating),
+        (work_olid, status, notes, rating),
     )
 
 
-def remove_from_reading_list(conn: sqlite3.Connection, *, book_olid: str) -> None:
+def remove_from_reading_list(conn: sqlite3.Connection, *, work_olid: str) -> None:
     conn.execute(
-        "DELETE FROM reading_list WHERE olid = ?",
-        (book_olid,),
+        "DELETE FROM reading_list_works WHERE work_olid = ?",
+        (work_olid,),
     )
 
 
@@ -162,16 +152,14 @@ def get_reading_list(
         raise ValueError("status must be one of: read, reading, wishlist.")
     query = """
         SELECT
-            rl.olid,
+            rl.work_olid,
             rl.status,
             rl.added_at,
             rl.notes,
             rl.rating,
-            b.title,
-            b.publish_date,
-            b.num_pages
-        FROM reading_list rl
-        JOIN books b ON b.olid = rl.olid
+            w.title
+        FROM reading_list_works rl
+        JOIN works w ON w.olid = rl.work_olid
     """
     params: Sequence[object] = ()
     if status:
@@ -185,40 +173,36 @@ def get_reading_list(
         author_rows = conn.execute(
             """
             SELECT author_olid
-            FROM book_authors
-            WHERE book_olid = ?
+            FROM work_authors
+            WHERE work_olid = ?
             ORDER BY author_order ASC
             """,
-            (row["olid"],),
+            (row["work_olid"],),
         ).fetchall()
         author_olids = [author_row["author_olid"] for author_row in author_rows]
         results.append(
             {
-                "book_olid": row["olid"],
+                "work_olid": row["work_olid"],
                 "status": row["status"],
                 "added_at": row["added_at"],
                 "notes": row["notes"],
                 "rating": row["rating"],
                 "title": row["title"],
-                "publish_date": row["publish_date"],
-                "num_pages": row["num_pages"],
                 "author_olids": author_olids,
             }
         )
     return results
 
 
-def get_reading_list_entry(
-    conn: sqlite3.Connection, *, book_olid: str
-) -> dict | None:
+def get_reading_list_entry(conn: sqlite3.Connection, *, work_olid: str) -> dict | None:
     row = conn.execute(
-        "SELECT olid, status, notes, rating FROM reading_list WHERE olid = ?",
-        (book_olid,),
+        "SELECT work_olid, status, notes, rating FROM reading_list_works WHERE work_olid = ?",
+        (work_olid,),
     ).fetchone()
     if row is None:
         return None
     return {
-        "book_olid": row["olid"],
+        "work_olid": row["work_olid"],
         "status": row["status"],
         "notes": row["notes"],
         "rating": row["rating"],
