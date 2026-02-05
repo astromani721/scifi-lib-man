@@ -3,6 +3,28 @@ Personal Science Fiction Library Manager. Organize a reading list of Hugo/Nebula
 
 See `AGENTS.md` for repo-specific contributor/agent instructions.
 
+```mermaid
+flowchart TD
+  subgraph User
+    CLI[CLI: scifi-lib-man]
+    UI[Frontend: React (Vite)]
+  end
+  subgraph App
+    API[FastAPI: scifi_lib_man.main:app]
+    Core[Core: catalog/models/random_pick]
+    Store[Storage: local JSON/DB file]
+  end
+  subgraph External
+    OL[Open Library API]
+  end
+
+  CLI --> API
+  UI --> API
+  API --> Core
+  Core --> Store
+  API --> OL
+```
+
 ## Features
 - CLI scaffold (Typer)
 - FastAPI app with `/health`, `/books/search`, `/books/quick-search`, `/books/isbn/{isbn}`, `/books/{olid}`, `/works/{olid}`, `/authors/{olid}`, `/books/awards/{award}/search`
