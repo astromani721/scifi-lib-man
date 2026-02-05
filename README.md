@@ -3,6 +3,7 @@ Personal Science Fiction Library Manager. Organize a reading list of Hugo/Nebula
 
 See `AGENTS.md` for repo-specific contributor/agent instructions.
 
+## Architecture
 ```mermaid
 flowchart TD
   subgraph User
