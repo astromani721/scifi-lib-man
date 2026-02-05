@@ -7,7 +7,7 @@ See `AGENTS.md` for repo-specific contributor/agent instructions.
 flowchart TD
   subgraph User
     CLI[CLI: scifi-lib-man]
-    UI[Frontend: React (Vite)]
+    UI[Frontend: React / Vite]
   end
   subgraph App
     API[FastAPI: scifi_lib_man.main:app]
