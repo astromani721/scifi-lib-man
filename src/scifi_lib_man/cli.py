@@ -192,7 +192,11 @@ def similar_works(
                 for item in items[:10]:
                     title = item.get("title") or "Unknown"
                     score = item.get("score")
-                    typer.echo(f" - {title} ({score})")
+                    reason = item.get("reason")
+                    if reason:
+                        typer.echo(f" - {title} ({score}) :: {reason}")
+                    else:
+                        typer.echo(f" - {title} ({score})")
             elif event_name == "error":
                 typer.echo(f"[error] {payload.get('message', '')}")
                 break

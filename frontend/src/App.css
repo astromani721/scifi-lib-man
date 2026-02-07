@@ -376,6 +376,12 @@
   color: var(--ink-soft);
 }
 
+.similar__reason {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
 .similar__controls {
   display: flex;
   flex-wrap: wrap;

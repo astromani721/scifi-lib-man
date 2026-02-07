@@ -76,13 +76,6 @@ stateDiagram-v2
   DiscoverCandidates --> StreamUpdate: error
 ```
 
-### Current Implementation Flow
-```mermaid
-flowchart TD
-  ParseQuery --> FetchProfile --> DiscoverCandidates --> EmbedBatch --> RetrieveSimilar --> StreamUpdate
-  StreamUpdate -->|more batches| EmbedBatch
-  StreamUpdate -->|done| End([End])
-```
 
 ### Nodes
 - **ParseQuery**: normalize title or OLID
@@ -90,7 +83,7 @@ flowchart TD
 - **DiscoverCandidates**: subject and keyword search to find candidates
 - **EmbedBatch**: embed and upsert a batch into ChromaDB
 - **RetrieveSimilar**: query ChromaDB by embedding
-- **ExplainResults**: short reasons for matches
+- **ExplainResults**: short reasons for matches (lightweight metadata-based)
 - **StreamUpdate**: emit SSE updates
 
 ## SSE Contract
@@ -154,6 +147,7 @@ if prefer_year_range:
 Notes:
 - Subjects, awards, and year appear in the embedding text and are also used as small boosts.
 - Author boost is optional and controlled by a UI toggle.
+ - Reasons are derived from shared subjects/awards, era proximity, and same-author matches (when enabled).
 
 ## UX Flow
 1) User clicks "Similar works"
@@ -182,6 +176,7 @@ Store the embedding model and collection name in config so they can change witho
 SCIFI_EMBEDDING_MODEL=embeddinggemma
 SCIFI_CHROMA_COLLECTION=works_v1_embeddinggemma
 SCIFI_CHROMA_PERSIST_DIR=data/chroma
+SCIFI_LOG_SIMILARITY=1
 ```
 
 ### Retry and Backoff
@@ -283,6 +278,12 @@ If needed, a simple MVP can start as plain Python + background tasks and migrate
 - SSE is one-way (server → client) and fits streaming progress/results.
 - WebSockets are full-duplex and add complexity when the client doesn't need to send messages.
 - SSE works over standard HTTP with native browser `EventSource`.
+
+## CLI Usage (Similarity)
+You can stream similar works from the CLI (requires the API server running):
+```
+scifi-lib-man similar /works/OL45804W
+```
 
 ### Planned Nodes
 - **ParseQuery**: normalize title or OLID

@@ -67,6 +67,7 @@ ollama pull embeddinggemma
 ```
 
 The CLI uses `SCIFI_API_BASE` to target a non-default API host.
+Set `SCIFI_LOG_SIMILARITY=1` to print top match reasons on the server.
 
 ### Example requests
 ```

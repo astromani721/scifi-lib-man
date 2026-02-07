@@ -421,6 +421,17 @@ def _score_results(
                 score += 0.05
             score -= 0.05 * year_proximity
 
+        reason = _build_reason(
+            query_subjects=query_subjects,
+            query_awards=query_awards,
+            query_year=query_year,
+            query_authors=query_authors,
+            subjects=subjects,
+            awards=awards,
+            year=year,
+            authors=authors,
+            options=options,
+        )
         scored.append(
             {
                 "id": metadata.get("olid"),
@@ -430,6 +441,7 @@ def _score_results(
                 "score": round(score, 4),
                 "subjects": subjects,
                 "awards": awards,
+                "reason": reason,
             }
         )
 
@@ -450,6 +462,37 @@ def _quote_query_term(value: str) -> str:
     if " " in escaped or ":" in escaped:
         return f'"{escaped}"'
     return escaped
+
+
+def _build_reason(
+    *,
+    query_subjects: list[str],
+    query_awards: list[str],
+    query_year: int | None,
+    query_authors: list[str],
+    subjects: list[str],
+    awards: list[str],
+    year: int | None,
+    authors: list[str],
+    options: SimilarityOptions,
+) -> str:
+    parts: list[str] = []
+    shared_subjects = [s for s in subjects if s in set(query_subjects)]
+    if shared_subjects:
+        parts.append(f"Shared subjects: {', '.join(shared_subjects[:3])}")
+    shared_awards = [a for a in awards if a in set(query_awards)]
+    if shared_awards:
+        parts.append(f"Awards overlap: {', '.join(shared_awards[:2])}")
+    if (
+        isinstance(query_year, int)
+        and isinstance(year, int)
+        and abs(query_year - year) <= 15
+    ):
+        parts.append("Similar era")
+    if options.prefer_same_author and query_authors and authors:
+        if set(query_authors) & set(authors):
+            parts.append("Same author")
+    return "; ".join(parts) if parts else "Semantic similarity"
 
 
 def _build_graph(emit):
@@ -609,6 +652,11 @@ def _build_graph(emit):
             results.append({"metadata": metadata, "similarity": similarity})
 
         scored = _score_results(results, state["work_metadata"], state["options"])
+        if os.getenv("SCIFI_LOG_SIMILARITY") == "1":
+            for item in scored[:10]:
+                title = item.get("title") or "Unknown"
+                reason = item.get("reason") or ""
+                print(f"Similar: {title} -> {reason}")
         emit("results", {"items": scored, "refined": True})
         return {"results": scored}
 

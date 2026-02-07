@@ -533,6 +533,9 @@ function App() {
                   <div>
                     <div className="results__title">{item.title}</div>
                     <div className="results__key">{item.id}</div>
+                    {item.reason && (
+                      <div className="similar__reason">{item.reason}</div>
+                    )}
                   </div>
                   <div>
                     {Array.isArray(item.authors) && item.authors.length
