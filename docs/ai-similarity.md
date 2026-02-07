@@ -76,6 +76,14 @@ stateDiagram-v2
   DiscoverCandidates --> StreamUpdate: error
 ```
 
+### Current Implementation Flow
+```mermaid
+flowchart TD
+  ParseQuery --> FetchProfile --> DiscoverCandidates --> EmbedBatch --> RetrieveSimilar --> StreamUpdate
+  StreamUpdate -->|more batches| EmbedBatch
+  StreamUpdate -->|done| End([End])
+```
+
 ### Nodes
 - **ParseQuery**: normalize title or OLID
 - **FetchProfile**: Open Library lookup and profile text creation
@@ -270,6 +278,11 @@ LangGraph models the pipeline as a state machine (nodes and edges). It is not re
 - a clean place to add new steps later (rerank, explanations, fallbacks)
 
 If needed, a simple MVP can start as plain Python + background tasks and migrate to LangGraph later.
+
+## SSE vs WebSocket (Why SSE)
+- SSE is one-way (server → client) and fits streaming progress/results.
+- WebSockets are full-duplex and add complexity when the client doesn't need to send messages.
+- SSE works over standard HTTP with native browser `EventSource`.
 
 ### Planned Nodes
 - **ParseQuery**: normalize title or OLID
