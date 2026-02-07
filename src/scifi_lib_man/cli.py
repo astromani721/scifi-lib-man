@@ -1,3 +1,7 @@
+import json
+import os
+
+import requests
 import typer
 
 from .catalog import (
@@ -21,6 +25,7 @@ from .storage import (
 
 
 app = typer.Typer(help="Science Fiction Library Manager CLI")
+API_BASE = os.getenv("SCIFI_API_BASE", "http://127.0.0.1:8000").rstrip("/")
 
 
 @app.command()
@@ -127,3 +132,78 @@ def remove_entry(
     conn.commit()
     conn.close()
     typer.echo("ok")
+
+
+@app.command("similar")
+def similar_works(
+    work_olid: str = typer.Argument(
+        ..., help="Open Library work key (e.g., /works/OL123W)."
+    ),
+    prefer_same_author: bool = typer.Option(
+        False, help="Boost works by the same author."
+    ),
+    prefer_year_range: int | None = typer.Option(
+        None, help="Prefer works within +/- N years."
+    ),
+    max_candidates: int = typer.Option(200, help="Max candidates to index."),
+    batch_size: int = typer.Option(25, help="Batch size for embedding."),
+    time_budget_sec: int = typer.Option(15, help="Time budget in seconds."),
+    language: str = typer.Option("eng", help="Language filter (ISO 639-2)."),
+) -> None:
+    """Stream similar works via the API SSE endpoint."""
+    params = {
+        "work_olid": work_olid,
+        "prefer_same_author": str(prefer_same_author).lower(),
+        "max_candidates": max_candidates,
+        "batch_size": batch_size,
+        "time_budget_sec": time_budget_sec,
+        "language": language,
+    }
+    if prefer_year_range is not None:
+        params["prefer_year_range"] = prefer_year_range
+
+    url = f"{API_BASE}/works/similar/stream"
+    typer.echo(f"Connecting to {url}")
+    response = requests.get(url, params=params, stream=True, timeout=60)
+    response.raise_for_status()
+
+    event_name = None
+    data_lines: list[str] = []
+
+    for raw_line in response.iter_lines(decode_unicode=True):
+        if raw_line is None:
+            continue
+        line = raw_line.strip()
+        if not line:
+            if not event_name or not data_lines:
+                event_name = None
+                data_lines = []
+                continue
+            payload = json.loads("\n".join(data_lines))
+            if event_name == "status":
+                typer.echo(f"[status] {payload.get('message', '')}")
+            elif event_name == "progress":
+                embedded = payload.get("embedded", 0)
+                total = payload.get("total", 0)
+                typer.echo(f"[progress] {embedded}/{total}")
+            elif event_name == "results":
+                items = payload.get("items", [])
+                typer.echo(f"[results] {len(items)} matches")
+                for item in items[:10]:
+                    title = item.get("title") or "Unknown"
+                    score = item.get("score")
+                    typer.echo(f" - {title} ({score})")
+            elif event_name == "error":
+                typer.echo(f"[error] {payload.get('message', '')}")
+                break
+            elif event_name == "done":
+                typer.echo("[done] refined results ready")
+                break
+            event_name = None
+            data_lines = []
+            continue
+
+        if line.startswith("event:"):
+            event_name = line.split(":", 1)[1].strip()
+        elif line.startswith("data:"):
+            data_lines.append(line.split(":", 1)[1].strip())

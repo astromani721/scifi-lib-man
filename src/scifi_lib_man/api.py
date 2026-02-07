@@ -1,7 +1,10 @@
+"""FastAPI routes for the Sci-Fi Library Manager."""
+
 from typing import Annotated, Iterator
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from .catalog import (
@@ -32,6 +35,7 @@ from .storage import (
     upsert_author,
     upsert_work,
 )
+from .similarity import SimilarityOptions, start_similarity_stream
 
 app = FastAPI(title="Sci-Fi Library Manager", version="0.1.0")
 app.add_middleware(
@@ -174,6 +178,7 @@ def search_books(
         ),
     ] = None,
 ) -> dict:
+    """Search Open Library works with optional filters."""
     if not any(
         [
             q,
@@ -242,6 +247,7 @@ def quick_search_books(
         ),
     ] = 1,
 ) -> dict:
+    """Lightweight search for quick UI lookups."""
     try:
         return search_openlibrary(
             q=q,
@@ -257,6 +263,7 @@ def quick_search_books(
 
 @app.get("/books/isbn/{isbn}")
 def get_book_by_isbn(isbn: str) -> dict:
+    """Fetch an Open Library edition by ISBN."""
     try:
         return fetch_by_isbn(isbn)
     except ValueError as exc:
@@ -267,6 +274,7 @@ def get_book_by_isbn(isbn: str) -> dict:
 
 @app.get("/books/{olid}")
 def get_book_by_olid(olid: str) -> dict:
+    """Fetch an Open Library edition by OLID."""
     try:
         return fetch_book_by_olid(olid)
     except ValueError as exc:
@@ -277,6 +285,7 @@ def get_book_by_olid(olid: str) -> dict:
 
 @app.get("/authors/{olid}")
 def get_author_by_olid(olid: str) -> dict:
+    """Fetch an Open Library author by OLID."""
     try:
         return fetch_author_by_olid(olid)
     except ValueError as exc:
@@ -459,6 +468,7 @@ def search_award_books(
         ),
     ] = None,
 ) -> dict:
+    """Search for award-winning works using Open Library subject filters."""
     award_filters = AWARD_FILTERS.get(award.lower())
     if not award_filters:
         raise HTTPException(
@@ -494,9 +504,54 @@ def search_award_books(
 
 @app.get("/works/{olid}")
 def get_work_by_olid(olid: str) -> dict:
+    """Fetch an Open Library work by OLID."""
     try:
         return fetch_work_by_olid(olid)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/works/similar/stream")
+def stream_similar_works(
+    work_olid: Annotated[
+        str,
+        Query(description="Work OLID (e.g. /works/OL45804W)."),
+    ],
+    prefer_same_author: Annotated[
+        bool,
+        Query(description="Boost works by the same author."),
+    ] = False,
+    prefer_year_range: Annotated[
+        int | None,
+        Query(description="Prefer works within +/- N years."),
+    ] = None,
+    max_candidates: Annotated[
+        int,
+        Query(ge=10, le=500, description="Max candidates to index."),
+    ] = 200,
+    batch_size: Annotated[
+        int,
+        Query(ge=5, le=100, description="Batch size for embedding."),
+    ] = 25,
+    time_budget_sec: Annotated[
+        int,
+        Query(ge=5, le=60, description="Time budget in seconds."),
+    ] = 15,
+    language: Annotated[
+        str | None,
+        Query(description="Optional language filter (ISO 639-2)."),
+    ] = "eng",
+) -> StreamingResponse:
+    """Stream SSE updates for similar works."""
+    options = SimilarityOptions(
+        prefer_same_author=prefer_same_author,
+        prefer_year_range=prefer_year_range,
+        max_candidates=max_candidates,
+        batch_size=batch_size,
+        time_budget_sec=time_budget_sec,
+        language=language,
+    )
+    stream = start_similarity_stream(work_olid=work_olid, options=options)
+    return StreamingResponse(stream, media_type="text/event-stream")

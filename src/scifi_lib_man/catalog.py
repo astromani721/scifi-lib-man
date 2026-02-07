@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+"""Catalog helpers for fetching and normalizing Open Library records."""
+
 from collections.abc import Iterable
 
 from .openlibrary import AUTHOR_PREFIX, BOOK_PREFIX, WORK_PREFIX, fetch_by_key
 
 
 def fetch_book_by_olid(olid: str) -> dict:
+    """Normalize and fetch an edition by OLID."""
     normalized = olid.strip()
     if not normalized:
         raise ValueError("OLID must be a non-empty string.")
@@ -23,6 +26,7 @@ def fetch_book_by_olid(olid: str) -> dict:
 
 
 def fetch_work_by_olid(olid: str) -> dict:
+    """Normalize and fetch a work by OLID."""
     normalized = olid.strip()
     if not normalized:
         raise ValueError("OLID must be a non-empty string.")
@@ -38,6 +42,7 @@ def fetch_work_by_olid(olid: str) -> dict:
 
 
 def fetch_author_by_olid(olid: str) -> dict:
+    """Normalize and fetch an author by OLID."""
     normalized = olid.strip()
     if not normalized:
         raise ValueError("OLID must be a non-empty string.")
@@ -61,6 +66,7 @@ def _coerce_list(value: object) -> list:
 
 
 def extract_work_fields(record: dict) -> dict:
+    """Extract commonly used work fields from Open Library search results."""
     return {
         "olid": record.get("key"),
         "title": record.get("title") or "Unknown title",
@@ -69,6 +75,7 @@ def extract_work_fields(record: dict) -> dict:
 
 
 def extract_authors(record: dict) -> list[dict]:
+    """Normalize author entries from a work or search result."""
     authors: list[dict] = []
     for entry in _coerce_list(record.get("authors")):
         if not isinstance(entry, dict):

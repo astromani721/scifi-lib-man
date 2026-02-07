@@ -3,3 +3,5 @@ typer
 rich
 pydantic
 fastapi
+chromadb
+langgraph

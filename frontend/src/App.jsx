@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const PAGE_SIZE = 10;
@@ -18,6 +18,18 @@ function App() {
   const [updating, setUpdating] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [similarWork, setSimilarWork] = useState(null);
+  const [similarResults, setSimilarResults] = useState([]);
+  const [similarStatus, setSimilarStatus] = useState("");
+  const [similarProgress, setSimilarProgress] = useState(null);
+  const [similarError, setSimilarError] = useState("");
+  const [preferSameAuthor, setPreferSameAuthor] = useState(false);
+  const [preferYearRange, setPreferYearRange] = useState(false);
+  const [yearRange, setYearRange] = useState(20);
+  const [statusDots, setStatusDots] = useState("");
+  const [similarBusy, setSimilarBusy] = useState(false);
+  const similarStreamRef = useRef(null);
+  const statusTimerRef = useRef(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -85,6 +97,45 @@ function App() {
   useEffect(() => {
     refreshReadingList();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (similarStreamRef.current) {
+        similarStreamRef.current.close();
+      }
+      if (statusTimerRef.current) {
+        clearInterval(statusTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!similarStatus || !similarBusy) {
+      setStatusDots("");
+      if (statusTimerRef.current) {
+        clearInterval(statusTimerRef.current);
+        statusTimerRef.current = null;
+      }
+      return;
+    }
+    if (statusTimerRef.current) {
+      return;
+    }
+    statusTimerRef.current = setInterval(() => {
+      setStatusDots((prev) => {
+        if (prev.length >= 3) {
+          return ".";
+        }
+        return prev + ".";
+      });
+    }, 600);
+    return () => {
+      if (statusTimerRef.current) {
+        clearInterval(statusTimerRef.current);
+        statusTimerRef.current = null;
+      }
+    };
+  }, [similarStatus]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -186,6 +237,67 @@ function App() {
     }
   };
 
+  const startSimilarStream = (work) => {
+    if (!work?.key) {
+      return;
+    }
+    if (similarStreamRef.current) {
+      similarStreamRef.current.close();
+    }
+    setSimilarWork(work);
+    setSimilarResults([]);
+    setSimilarStatus("Starting similarity search…");
+    setSimilarProgress(null);
+    setSimilarError("");
+    setStatusDots("");
+    setSimilarBusy(true);
+    setActiveTab("similar");
+
+    const url = new URL(`${API_BASE}/works/similar/stream`);
+    url.searchParams.set("work_olid", work.key);
+    url.searchParams.set("prefer_same_author", preferSameAuthor.toString());
+    if (preferYearRange) {
+      url.searchParams.set("prefer_year_range", yearRange.toString());
+    }
+
+    const eventSource = new EventSource(url.toString());
+    similarStreamRef.current = eventSource;
+
+    eventSource.addEventListener("status", (event) => {
+      const payload = JSON.parse(event.data);
+      setSimilarStatus(payload.message || "");
+      setStatusDots("");
+    });
+
+    eventSource.addEventListener("progress", (event) => {
+      const payload = JSON.parse(event.data);
+      setSimilarProgress(payload);
+    });
+
+    eventSource.addEventListener("results", (event) => {
+      const payload = JSON.parse(event.data);
+      setSimilarResults(payload.items || []);
+    });
+
+    eventSource.addEventListener("done", () => {
+      setSimilarStatus("Refined results ready.");
+      setStatusDots("");
+      setSimilarBusy(false);
+      eventSource.close();
+    });
+
+    eventSource.addEventListener("error", (event) => {
+      const payload = event?.data ? JSON.parse(event.data) : null;
+      setSimilarError(
+        payload?.message || "Similarity search failed. Try again later.",
+      );
+      setSimilarStatus("");
+      setStatusDots("");
+      setSimilarBusy(false);
+      eventSource.close();
+    });
+  };
+
   return (
     <div className="app">
       <header className="hero">
@@ -203,6 +315,13 @@ function App() {
             onClick={() => setActiveTab("search")}
           >
             Search
+          </button>
+          <button
+            type="button"
+            className={activeTab === "similar" ? "tab active" : "tab"}
+            onClick={() => setActiveTab("similar")}
+          >
+            Similar Works
           </button>
           <button
             type="button"
@@ -240,6 +359,15 @@ function App() {
                 Page {page} of {totalPages}
               </span>
             </>
+          ) : activeTab === "similar" ? (
+            <>
+              <span>
+                {similarResults.length > 0
+                  ? `${similarResults.length} matches`
+                  : "No matches yet"}
+              </span>
+              <span className="results__page">Similarity search</span>
+            </>
           ) : (
             <>
               <span>{readingList.length} saved</span>
@@ -252,11 +380,12 @@ function App() {
 
         {activeTab === "search" ? (
           <div className="results__table">
-            <div className="results__row results__row--header">
+            <div className="results__row results__row--header results__row--search">
               <span>Title</span>
               <span>Author</span>
               <span>Year</span>
               <span>Status</span>
+              <span></span>
             </div>
             {results.map((item) => {
               const key = item.key;
@@ -267,7 +396,7 @@ function App() {
               const status = statusMap[key] || "New";
               const disabled = Boolean(updating[key]);
               return (
-                <div className="results__row" key={key}>
+                <div className="results__row results__row--search" key={key}>
                   <div>
                     <div className="results__title">{item.title}</div>
                     <div className="results__key">{key}</div>
@@ -295,9 +424,131 @@ function App() {
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <button
+                      type="button"
+                      className="similar-button"
+                      onClick={() =>
+                        startSimilarStream({
+                          key,
+                          title: item.title,
+                          author,
+                          year: item.first_publish_year,
+                        })
+                      }
+                    >
+                      Search similar
+                    </button>
+                  </div>
                 </div>
               );
             })}
+          </div>
+        ) : activeTab === "similar" ? (
+          <div className="similar">
+            <div className="similar__header">
+              <div>
+                <div className="similar__label">Selected work</div>
+                <div className="similar__title">
+                  {similarWork?.title || "Pick a work from Search"}
+                </div>
+                {similarWork?.key && (
+                  <div className="similar__key">{similarWork.key}</div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="similar-button"
+                onClick={() => startSimilarStream(similarWork)}
+                disabled={!similarWork}
+              >
+                Refresh
+              </button>
+            </div>
+
+            <div className="similar__controls">
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={preferSameAuthor}
+                  onChange={(event) =>
+                    setPreferSameAuthor(event.target.checked)
+                  }
+                />
+                Prefer same author
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={preferYearRange}
+                  onChange={(event) =>
+                    setPreferYearRange(event.target.checked)
+                  }
+                />
+                Prefer similar era
+              </label>
+              <select
+                className="range-select"
+                value={yearRange}
+                onChange={(event) => setYearRange(Number(event.target.value))}
+                disabled={!preferYearRange}
+              >
+                {[10, 20, 30, 40].map((value) => (
+                  <option key={value} value={value}>
+                    ±{value} years
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {similarError && (
+              <div className="notice notice--error">{similarError}</div>
+            )}
+
+            {similarStatus && (
+              <div className="similar__status">
+                {similarStatus}
+                {statusDots}
+              </div>
+            )}
+            {similarProgress && (
+              <div className="similar__progress">
+                Indexed {similarProgress.embedded ?? 0} of{" "}
+                {similarProgress.total ?? 0}
+              </div>
+            )}
+
+            <div className="results__table">
+              <div className="results__row results__row--header similar__row">
+                <span>Title</span>
+                <span>Author</span>
+                <span>Year</span>
+                <span>Score</span>
+              </div>
+              {similarResults.map((item) => (
+                <div
+                  className="results__row similar__row"
+                  key={item.id || item.title}
+                >
+                  <div>
+                    <div className="results__title">{item.title}</div>
+                    <div className="results__key">{item.id}</div>
+                  </div>
+                  <div>
+                    {Array.isArray(item.authors) && item.authors.length
+                      ? item.authors.join(", ")
+                      : "Unknown"}
+                  </div>
+                  <div>{item.year ?? "—"}</div>
+                  <div>{item.score}</div>
+                </div>
+              ))}
+              {similarResults.length === 0 && (
+                <div className="similar__empty">
+                  No results yet. Start a similarity search from the Search tab.
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="results__table">

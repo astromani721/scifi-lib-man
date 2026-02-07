@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+"""Open Library client helpers and query builders."""
+
+import os
 from typing import Iterable
 
 import requests
@@ -93,6 +96,7 @@ def build_award_query(
     year_from: int | None = None,
     year_to: int | None = None,
 ) -> str:
+    """Build a boolean Open Library query with award filters and optional facets."""
     if not award_filters:
         raise ValueError("award_filters must include at least one filter.")
     if year is not None and (year_from is not None or year_to is not None):
@@ -144,6 +148,7 @@ def search_openlibrary(
     page: int = 1,
     fields: Iterable[str] | None = None,
 ) -> dict:
+    """Perform a search against Open Library with standardized parameters."""
     if limit < 1 or limit > 100:
         raise ValueError("limit must be between 1 and 100.")
     if page < 1:
@@ -181,6 +186,8 @@ def search_openlibrary(
 
     try:
         response = requests.get(SEARCH_ENDPOINT, params=params, timeout=10)
+        if os.getenv("SCIFI_LOG_OPENLIBRARY") == "1":
+            print(f"Open Library search URL: {response.url}")
         response.raise_for_status()
     except requests.RequestException as exc:
         raise RuntimeError("Open Library search request failed.") from exc
@@ -189,6 +196,7 @@ def search_openlibrary(
 
 
 def fetch_by_isbn(isbn: str) -> dict:
+    """Fetch an edition by ISBN via Open Library."""
     if not isbn or not isbn.strip():
         raise ValueError("isbn must be a non-empty string.")
 
@@ -207,6 +215,7 @@ def fetch_by_isbn(isbn: str) -> dict:
 
 
 def fetch_by_key(key: str, *, allowed_prefixes: Iterable[str]) -> dict:
+    """Fetch a record by its Open Library key."""
     if not key or not key.strip():
         raise ValueError("key must be a non-empty string.")
     if not any(key.startswith(prefix) for prefix in allowed_prefixes):

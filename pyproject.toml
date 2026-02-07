@@ -17,7 +17,9 @@ dependencies = [
   "typer",
   "rich",
   "pydantic",
-  "fastapi"
+  "fastapi",
+  "chromadb",
+  "langgraph"
 ]
 
 [project.optional-dependencies]

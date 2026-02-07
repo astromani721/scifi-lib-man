@@ -26,9 +26,12 @@ flowchart TD
   API --> OL
 ```
 
+Design docs: `docs/ai-similarity.md`
+
 ## Features
 - CLI scaffold (Typer)
 - FastAPI app with `/health`, `/books/search`, `/books/quick-search`, `/books/isbn/{isbn}`, `/books/{olid}`, `/works/{olid}`, `/authors/{olid}`, `/books/awards/{award}/search`
+- Similar works (SSE): `/works/similar/stream`
 - Reading list API: `/reading-list` (GET), `/reading-list/{olid}` (POST/PUT/DELETE)
 - Open Library search + ISBN detail lookup
 - Dependency sync from `pyproject.toml`
@@ -48,6 +51,22 @@ pip install -e .[dev]
 ```
 uvicorn scifi_lib_man.main:app --reload
 ```
+
+## Similar Works (Local Setup)
+The similarity search uses Ollama embeddings and ChromaDB persistence.
+
+```
+export SCIFI_EMBEDDING_MODEL=embeddinggemma
+export SCIFI_CHROMA_COLLECTION=works_v1_embeddinggemma
+export SCIFI_CHROMA_PERSIST_DIR=data/chroma
+```
+
+Install and run Ollama, then pull the embedding model:
+```
+ollama pull embeddinggemma
+```
+
+The CLI uses `SCIFI_API_BASE` to target a non-default API host.
 
 ### Example requests
 ```
@@ -86,6 +105,7 @@ scifi-lib-man init-db
 scifi-lib-man add /works/OL45804W --status wishlist
 scifi-lib-man list --status wishlist
 scifi-lib-man remove /works/OL45804W
+scifi-lib-man similar /works/OL45804W
 ```
 
 ## Frontend UI
